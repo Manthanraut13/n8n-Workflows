@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Support — Raise a Ticket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #111318;
+    --surface2:  #181c24;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.14);
+    --accent:    #7b6ff0;
+    --accent2:   #5de8c1;
+    --accent-glow: rgba(123,111,240,0.25);
+    --text:      #e8e8f0;
+    --muted:     #6b7080;
+    --danger:    #f06b6b;
+    --success:   #5de8c1;
+    --radius:    14px;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grid ───────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(123,111,240,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(123,111,240,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ─────────────────────────────────────────────── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 {
+    width: 500px; height: 500px;
+    background: rgba(123,111,240,0.12);
+    top: -150px; left: -150px;
+    animation: drift1 18s ease-in-out infinite alternate;
+  }
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: rgba(93,232,193,0.08);
+    bottom: -100px; right: -100px;
+    animation: drift2 22s ease-in-out infinite alternate;
+  }
+  @keyframes drift1 { to { transform: translate(80px, 60px); } }
+  @keyframes drift2 { to { transform: translate(-60px, -80px); } }
+
+  /* ── Layout ────────────────────────────────────────────────── */
+  .page {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 600px;
+    animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Header ────────────────────────────────────────────────── */
+  .header {
+    margin-bottom: 36px;
+    text-align: left;
+  }
+  .header-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 14px;
+  }
+  .header-eyebrow::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 8px var(--accent2);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.7); }
+  }
+  .header-title {
+    font-family: var(--font-head);
+    font-size: clamp(32px, 6vw, 48px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-sub {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── Card ──────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    opacity: 0.6;
+  }
+
+  /* ── Form ──────────────────────────────────────────────────── */
+  .field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  label .req {
+    color: var(--accent);
+    margin-left: 2px;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    background: #13161e;
+  }
+  input.error, textarea.error { border-color: var(--danger); }
+  textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: '';
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--muted);
+    pointer-events: none;
+  }
+  select { cursor: pointer; }
+  select option { background: #1a1e28; }
+
+  /* ── Priority pills ─────────────────────────────────────────── */
+  .priority-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .priority-pill {
+    flex: 1;
+    min-width: 80px;
+    position: relative;
+  }
+  .priority-pill input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+  .priority-pill label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    transition: all 0.2s;
+    white-space: nowrap;
+    margin: 0;
+  }
+  .priority-pill label .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .priority-pill input:checked + label {
+    border-color: var(--pill-color, var(--accent));
+    background: rgba(123,111,240,0.1);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--pill-color, var(--accent));
+  }
+  .priority-pill.low   { --pill-color: #5de8c1; }
+  .priority-pill.medium{ --pill-color: #f0c56b; }
+  .priority-pill.high  { --pill-color: #f09b6b; }
+  .priority-pill.urgent{ --pill-color: #f06b6b; }
+  .priority-pill.low   .dot { background: #5de8c1; }
+  .priority-pill.medium .dot { background: #f0c56b; }
+  .priority-pill.high  .dot { background: #f09b6b; }
+  .priority-pill.urgent .dot { background: #f06b6b; }
+  .priority-pill input:checked + label .dot {
+    box-shadow: 0 0 8px var(--pill-color, var(--accent));
+  }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+    position: relative;
+  }
+
+  /* ── Error text ──────────────────────────────────────────── */
+  .field-error {
+    font-size: 11px;
+    color: var(--danger);
+    margin-top: 5px;
+    display: none;
+  }
+  .field-error.show { display: block; }
+
+  /* ── Submit button ───────────────────────────────────────── */
+  .btn {
+    width: 100%;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent) 0%, #9b6bf0 100%);
+    color: #fff;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: opacity 0.2s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.2s;
+  }
+  .btn:hover:not(:disabled)::after { background: rgba(255,255,255,0.06); }
+  .btn:active:not(:disabled) { transform: scale(0.99); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .btn-icon { font-size: 16px; transition: transform 0.2s; }
+  .btn:hover:not(:disabled) .btn-icon { transform: translateX(3px); }
+
+  /* ── Spinner ─────────────────────────────────────────────── */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast notification ──────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 22px;
+    border-radius: 14px;
+    border: 1px solid;
+    max-width: 360px;
+    font-size: 13px;
+    line-height: 1.5;
+    transform: translateY(120%) scale(0.95);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s;
+    pointer-events: none;
+  }
+  .toast.show {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .toast.success {
+    background: rgba(10,20,20,0.95);
+    border-color: var(--accent2);
+    backdrop-filter: blur(12px);
+  }
+  .toast.error {
+    background: rgba(20,10,10,0.95);
+    border-color: var(--danger);
+    backdrop-filter: blur(12px);
+  }
+  .toast-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .toast-title {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 3px;
+    color: var(--text);
+  }
+  .toast-body { color: var(--muted); font-size: 12px; }
+  .toast-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 16px; line-height: 1;
+  }
+
+  /* ── Success state overlay ───────────────────────────────── */
+  .success-view {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+    animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .success-view.show { display: block; }
+  .success-icon-wrap {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: rgba(93,232,193,0.1);
+    border: 1px solid rgba(93,232,193,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 30px;
+  }
+  .success-title {
+    font-family: var(--font-head);
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--accent2);
+  }
+  .success-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 340px;
+    margin: 0 auto 24px;
+    line-height: 1.6;
+  }
+  .ticket-id {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    margin-bottom: 28px;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: rgba(123,111,240,0.08);
+  }
+
+  /* ── Footer ─────────────────────────────────────────────── */
+  .footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .footer .n8n-badge {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* ── Char counter ─────────────────────────────────────────── */
+  .char-counter {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 5px;
+    transition: color 0.2s;
+  }
+  .char-counter.warn { color: #f0c56b; }
+  .char-counter.over { color: var(--danger); }
+
+  /* ── Responsive ───────────────────────────────────────────── */
+  @media (max-width: 520px) {
+    .field-group { grid-template-columns: 1fr; }
+    .card { padding: 22px 18px; }
+    .priority-row { gap: 6px; }
+    .priority-pill label { font-size: 11px; padding: 8px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">Support Portal</div>
+    <h1 class="header-title">Raise a <span>Ticket</span></h1>
+    <p class="header-sub">Our AI triage system will classify and route your request instantly.</p>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+
+    <!-- Form view -->
+    <div id="form-view">
+      <div class="field-group">
+        <div class="field">
+          <label>Full name <span class="req">*</span></label>
+          <input type="text" id="name" placeholder="Priya Sharma" autocomplete="name"/>
+          <div class="field-error" id="name-err">Please enter your name</div>
+        </div>
+        <div class="field">
+          <label>Email address <span class="req">*</span></label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email"/>
+          <div class="field-error" id="email-err">Please enter a valid email</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Subject <span class="req">*</span></label>
+        <input type="text" id="subject" placeholder="Brief description of your issue"/>
+        <div class="field-error" id="subject-err">Please enter a subject</div>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <div class="select-wrap">
+          <select id="category">
+            <option value="">— Select a category —</option>
+            <option value="billing">Billing &amp; Payments</option>
+            <option value="technical">Technical Issue</option>
+            <option value="account">Account &amp; Access</option>
+            <option value="general">General Query</option>
+            <option value="feedback">Feedback / Suggestion</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Priority</label>
+        <div class="priority-row">
+          <div class="priority-pill low">
+            <input type="radio" name="priority" id="p-low" value="low" checked/>
+            <label for="p-low"><span class="dot"></span>Low</label>
+          </div>
+          <div class="priority-pill medium">
+            <input type="radio" name="priority" id="p-medium" value="medium"/>
+            <label for="p-medium"><span class="dot"></span>Medium</label>
+          </div>
+          <div class="priority-pill high">
+            <input type="radio" name="priority" id="p-high" value="high"/>
+            <label for="p-high"><span class="dot"></span>High</label>
+          </div>
+          <div class="priority-pill urgent">
+            <input type="radio" name="priority" id="p-urgent" value="urgent"/>
+            <label for="p-urgent"><span class="dot"></span>Urgent</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field">
+        <label>Message <span class="req">*</span></label>
+        <textarea id="message" placeholder="Describe your issue in detail. Include any error messages, steps to reproduce, or relevant context..." maxlength="2000" oninput="updateCounter()"></textarea>
+        <div class="char-counter" id="char-counter">0 / 2000</div>
+        <div class="field-error" id="message-err">Please describe your issue</div>
+      </div>
+
+      <button class="btn" id="submit-btn" onclick="submitTicket()">
+        <span id="btn-text">Submit Ticket</span>
+        <span class="btn-icon" id="btn-arrow">&#8594;</span>
+        <span class="spinner" id="btn-spinner"></span>
+      </button>
+    </div>
+
+    <!-- Success view -->
+    <div class="success-view" id="success-view">
+      <div class="success-icon-wrap">&#10003;</div>
+      <div class="success-title">Ticket Submitted!</div>
+      <p class="success-sub">Your request has been received and routed by our AI triage system. You'll hear from us shortly.</p>
+      <div class="ticket-id" id="ticket-id">TKT-XXXXXX</div>
+      <br/>
+      <button class="btn-ghost" onclick="resetForm()">Submit another ticket</button>
+    </div>
+
+  </div><!-- /card -->
+
+  <div class="footer">
+    Powered by <span class="n8n-badge">n8n AI Workflow</span> &mdash; tickets are triaged automatically
+  </div>
+
+</div><!-- /page -->
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon"></div>
+  <div>
+    <div class="toast-title" id="toast-title"></div>
+    <div class="toast-body" id="toast-body"></div>
+  </div>
+  <button class="toast-close" onclick="hideToast()">&#215;</button>
+</div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────────
+  const WEBHOOK_URL = 'https://manthanraut.app.n8n.cloud/webhook-test/support-ticket';
+
+  // ── Char counter ────────────────────────────────────────────────
+  function updateCounter() {
+    const el = document.getElementById('message');
+    const counter = document.getElementById('char-counter');
+    const len = el.value.length;
+    counter.textContent = len + ' / 2000';
+    counter.className = 'char-counter' + (len > 1800 ? ' over' : len > 1500 ? ' warn' : '');
+  }
+
+  // ── Validation ──────────────────────────────────────────────────
+  function validate() {
+    let ok = true;
+    const checks = [
+      { id: 'name',    errId: 'name-err',    test: v => v.trim().length >= 2,        msg: 'Please enter your name' },
+      { id: 'email',   errId: 'email-err',   test: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), msg: 'Please enter a valid email' },
+      { id: 'subject', errId: 'subject-err', test: v => v.trim().length >= 4,        msg: 'Please enter a subject' },
+      { id: 'message', errId: 'message-err', test: v => v.trim().length >= 10,       msg: 'Please describe your issue (min 10 chars)' },
+    ];
+    checks.forEach(({ id, errId, test, msg }) => {
+      const el = document.getElementById(id);
+      const err = document.getElementById(errId);
+      if (!test(el.value)) {
+        el.classList.add('error');
+        err.textContent = msg;
+        err.classList.add('show');
+        ok = false;
+      } else {
+        el.classList.remove('error');
+        err.classList.remove('show');
+      }
+    });
+    return ok;
+  }
+
+  // ── Live clear errors ───────────────────────────────────────────
+  ['name','email','subject','message'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById(id).classList.remove('error');
+      document.getElementById(id + '-err').classList.remove('show');
+    });
+  });
+
+  // ── Toast ───────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(type, title, body) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-icon').textContent = type === 'success' ? '✓' : '✕';
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-body').textContent = body;
+    t.className = 'toast ' + type;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 5000);
+  }
+  function hideToast() {
+    document.getElementById('toast').classList.remove('show');
+  }
+
+  // ── Ticket ID generator ─────────────────────────────────────────
+  function genTicketId() {
+    return 'TKT-' + Math.random().toString(36).substring(2,8).toUpperCase();
+  }
+
+  // ── Submit ──────────────────────────────────────────────────────
+  async function submitTicket() {
+    if (!validate()) return;
+
+    const priority = document.querySelector('input[name="priority"]:checked').value;
+    const category = document.getElementById('category').value;
+
+    const payload = {
+      name:     document.getElementById('name').value.trim(),
+      email:    document.getElementById('email').value.trim(),
+      subject:  document.getElementById('subject').value.trim(),
+      message:  document.getElementById('message').value.trim(),
+      priority,
+      category: category || undefined,
+    };
+
+    // Loading state
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    document.getElementById('btn-text').textContent = 'Sending…';
+    document.getElementById('btn-arrow').style.display = 'none';
+    document.getElementById('btn-spinner').style.display = 'block';
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error('Server responded with ' + res.status);
+
+      // Success
+      const ticketId = genTicketId();
+      document.getElementById('ticket-id').textContent = ticketId;
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('success-view').classList.add('show');
+      showToast('success', 'Ticket received!', 'AI triage is processing your request now.');
+
+    } catch (err) {
+      // Error — show toast, keep form
+      btn.disabled = false;
+      document.getElementById('btn-text').textContent = 'Submit Ticket';
+      document.getElementById('btn-arrow').style.display = 'inline';
+      document.getElementById('btn-spinner').style.display = 'none';
+
+      const isNetwork = err.message.includes('Failed to fetch') || err.message.includes('NetworkError');
+      showToast(
+        'error',
+        isNetwork ? 'Connection failed' : 'Submission failed',
+        isNetwork
+          ? 'Cannot reach n8n. Make sure your workflow is active and the webhook URL is correct.'
+          : 'Something went wrong: ' + err.message
+      );
+    }
+  }
+
+  // ── Reset ───────────────────────────────────────────────────────
+  function resetForm() {
+    document.getElementById('form-view').style.display = 'block';
+    document.getElementById('success-view').classList.remove('show');
+    document.getElementById('name').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('subject').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('message').value = '';
+    document.getElementById('p-low').checked = true;
+    updateCounter();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = false;
+    document.getElementById('btn-text').textContent = 'Submit Ticket';
+    document.getElementById('btn-arrow').style.display = 'inline';
+    document.getElementById('btn-spinner').style.display = 'none';
+  }
+
+  // ── Enter key on inputs ─────────────────────────────────────────
+  ['name','email','subject'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const fields = ['name','email','subject','message'];
+        const next = fields[fields.indexOf(id) + 1];
+        if (next) document.getElementById(next).focus();
+      }
+    });
+  });
+</script>
+</body>
+</html>
