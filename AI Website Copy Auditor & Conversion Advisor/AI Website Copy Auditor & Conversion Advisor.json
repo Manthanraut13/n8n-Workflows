@@ -1,0 +1,438 @@
+{
+  "name": "AI Website Copy Auditor & Conversion Advisor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "website-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3585333c-c9be-4fc6-a2e8-8f50df01ab85",
+      "name": "Webhook",
+      "webhookId": "a6b6b1ff-493e-4a54-94dc-27f36ba95674"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        832,
+        192
+      ],
+      "id": "a8842703-d12f-4a05-b7a9-ee4b6630e62e",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=📊 Overall Score: {{ $json['Overall Score'] }}/100\n\n🌐 URL: {{ $json.URL }}\n\n📈 BREAKDOWN:\n- Headline: {{ $json['Headline Score'] }}/100\n- Value Prop: {{ $json['Value Prop Score'] }}/100\n- CTA: {{ $json['CTA Score'] }}/100\n- Trust: {{ $json['Trust Score'] }}/100\n- Clarity: {{ $json['Clarity Score'] }}/100\n\n💡 SUMMARY:{{ $json.Summary }}\n\n\n🚨 TOP ISSUES:{{ $json['Key Issues'] }}\n\n\n✅ TOP RECOMMENDATIONS:{{ $json.Recommendations }}\n\n\n📋 Full report saved to Google Sheets",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "410dc14d-de71-4a43-8d21-be6444fdd530",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1baf1fd-6ab4-4e4a-8618-3115c8c7e5a1",
+              "name": "url",
+              "value": "={{ $json.body.website }}",
+              "type": "string"
+            },
+            {
+              "id": "83ba18ea-6057-48d4-b0f0-4c5047346cfc",
+              "name": "user_email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "e7bb1c28-ce39-4fdb-a46b-15df37305e37",
+              "name": "audit_timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "c934d8e7-881f-4be2-a343-47f1cf2b64f6",
+              "name": "clean_url",
+              "value": "={{ $json.body.website.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "8b4b77b6-992a-4b61-927b-12aa71730a71",
+      "name": "Validate URL"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.clean_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "02150507-f644-4423-8c1c-01122d8844ed",
+      "name": "Fetch Website HTML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data;\nconst url = $input.item.json.clean_url || \"\";\n\n// 1. Remove <script> and <style> blocks\nlet text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, \"\")\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, \"\");\n\n// 2. Strip all remaining HTML tags\ntext = text.replace(/<[^>]+>/g, \" \");\n\n// 3. Decode common HTML entities\nconst entityMap = {\n  \"&nbsp;\": \" \",\n  \"&amp;\": \"&\",\n  \"&lt;\": \"<\",\n  \"&gt;\": \">\",\n  \"&quot;\": \"\\\"\"\n};\n\nfor (const [entity, char] of Object.entries(entityMap)) {\n  text = text.replace(new RegExp(entity, \"g\"), char);\n}\n\n// 4. Normalize whitespace\ntext = text.replace(/\\s+/g, \" \").trim();\n\n// 5. Limit text length (token safety)\nconst textContent = text.slice(0, 4000);\n\n// 6. Output\nreturn {\n  json: {\n    url,\n    text_content: textContent,\n    word_count: textContent ? textContent.split(\" \").length : 0\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "5ce22654-2a3a-45ad-91d8-ea574cdd9f34",
+      "name": "Extract & Clean Text Content"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this website copy:\n\nURL: {{ $json.url }}\nWord Count: {{ $json.word_count }}\n\nWEBSITE COPY:\n{{ $json.text_content }}\n```\n  - **Response Format**: JSON\n- **Output Fields**:\n  - `overall_score`, `headline_score`, `value_prop_score`, `cta_score`, `trust_score`, `clarity_score`\n  - `key_issues` (array)\n  - `conversion_risks` (array)\n  - `recommendations` (array)\n  - `summary` (string)",
+        "options": {
+          "systemMessage": "=You are an expert conversion rate optimization (CRO) consultant specializing in website copy audits. \n\nAnalyze the provided website copy and evaluate it across these dimensions:\n\n1. HEADLINE CLARITY (0-100): Is the main value proposition immediately clear?\n2. VALUE PROPOSITION (0-100): Does it clearly explain what the product/service does and why it matters?\n3. CALL-TO-ACTION (0-100): Are CTAs clear, compelling, and easy to find?\n4. TRUST SIGNALS (0-100): Are there credibility markers (testimonials, stats, guarantees)?\n5. COPY CLARITY (0-100): Is the language simple, jargon-free, and benefit-focused?\n\nProvide your analysis in this EXACT JSON format:\n{\n  \"overall_score\": 75,\n  \"headline_score\": 80,\n  \"value_prop_score\": 70,\n  \"cta_score\": 75,\n  \"trust_score\": 65,\n  \"clarity_score\": 85,\n  \"key_issues\": [\n    \"Issue 1 description\",\n    \"Issue 2 description\",\n    \"Issue 3 description\"\n  ],\n  \"conversion_risks\": [\n    \"Risk 1 description\",\n    \"Risk 2 description\"\n  ],\n  \"recommendations\": [\n    \"Actionable recommendation 1\",\n    \"Actionable recommendation 2\",\n    \"Actionable recommendation 3\"\n  ],\n  \"summary\": \"2-sentence executive summary of the audit\"\n}\n\nBe specific and actionable. Focus on conversion impact."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "1d99ea7a-8ca7-4a04-85f2-b98260f44d9a",
+      "name": "AI Agent - Copy Audit Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the raw stringified JSON\nconst rawOutput = items[0].json.output;\n\n// Parse string → object\nconst parsed = JSON.parse(rawOutput);\n\n// Return as clean n8n item\nreturn {\n  json: {\n    overall_score: parsed.overall_score,\n    headline_score: parsed.headline_score,\n    value_prop_score: parsed.value_prop_score,\n    cta_score: parsed.cta_score,\n    trust_score: parsed.trust_score,\n    clarity_score: parsed.clarity_score,\n    key_issues: parsed.key_issues,\n    conversion_risks: parsed.conversion_risks,\n    recommendations: parsed.recommendations,\n    summary: parsed.summary\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "dcd71abe-505d-4906-a6cf-6d6f07d995fe",
+      "name": "Format Audit Results"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PFLrHcCY5yD8Ur7OInbBZGW5n5oxBGQw_ZHIpAj-N1M",
+          "mode": "list",
+          "cachedResultName": "AI Website Copy Auditor & Conversion Advisor",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PFLrHcCY5yD8Ur7OInbBZGW5n5oxBGQw_ZHIpAj-N1M/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PFLrHcCY5yD8Ur7OInbBZGW5n5oxBGQw_ZHIpAj-N1M/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Overall Score": "={{ $json.overall_score }}",
+            "Headline Score": "={{ $json.headline_score }}",
+            "Value Prop Score": "={{ $json.value_prop_score }}",
+            "CTA Score": "={{ $json.cta_score }}",
+            "Trust Score": "={{ $json.trust_score }}",
+            "Clarity Score": "={{ $json.clarity_score }}",
+            "Key Issues": "={{ $json.key_issues[0] }}{{ $json.key_issues[1] }}{{ $json.key_issues[2] }}",
+            "Conversion Risks": "={{ $json.conversion_risks[0] }}{{ $json.conversion_risks[1] }}",
+            "Recommendations": "={{ $json.recommendations[0] }}{{ $json.recommendations[1] }}{{ $json.recommendations[2] }}",
+            "Summary": "={{ $json.summary }}",
+            "User Email": "={{ $('Validate URL').item.json.user_email }}",
+            "URL": "={{ $('Validate URL').item.json.url }}",
+            "Audit Date": "={{ $('Validate URL').item.json.audit_timestamp }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Audit Date",
+              "displayName": "Audit Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Overall Score",
+              "displayName": "Overall Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Headline Score",
+              "displayName": "Headline Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Value Prop Score",
+              "displayName": "Value Prop Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CTA Score",
+              "displayName": "CTA Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Trust Score",
+              "displayName": "Trust Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Clarity Score",
+              "displayName": "Clarity Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Key Issues",
+              "displayName": "Key Issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Conversion Risks",
+              "displayName": "Conversion Risks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendations",
+              "displayName": "Recommendations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User Email",
+              "displayName": "User Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "c724fcf8-9b35-480c-8fe9-2bc9d79487b1",
+      "name": "Save to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Copy Audit Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate URL": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website HTML": {
+      "main": [
+        [
+          {
+            "node": "Extract & Clean Text Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Clean Text Content": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Copy Audit Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Copy Audit Analysis": {
+      "main": [
+        [
+          {
+            "node": "Format Audit Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Audit Results": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d4931afe-ba8e-4001-9d04-78afc9980415",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "GOoQHLsn1HGaI9df",
+  "tags": []
+}

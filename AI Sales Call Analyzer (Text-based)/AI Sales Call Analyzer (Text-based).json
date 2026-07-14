@@ -1,0 +1,1727 @@
+{
+  "name": "AI Sales Call Analyzer (Text-based)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/sales-call-analysis",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        80
+      ],
+      "id": "96b992b3-afdd-4c87-9719-cc69917256e7",
+      "name": "Webhook",
+      "webhookId": "fa976521-7f30-4662-bd7c-12a53f7ebf58"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5ff44d98-45cb-44ff-b19d-2e84e375a161",
+              "name": "transcript_clean",
+              "value": "={{ $json.body.transcript.trim().replace(/\\s+/g, ' ') }}",
+              "type": "string"
+            },
+            {
+              "id": "b0f9a5ae-e7b6-46e4-8fdb-861b99e8c484",
+              "name": "deal_name",
+              "value": "={{ $json.body.deal_name || 'Unknown Deal' }}",
+              "type": "string"
+            },
+            {
+              "id": "bda63dc5-7fdb-4e6a-83a6-a5d79ce4e6a5",
+              "name": "company_name",
+              "value": "={{ $json.body.company_name || 'Unknown Company' }}",
+              "type": "string"
+            },
+            {
+              "id": "22d23adc-622c-4e2b-bed0-9314f6a89317",
+              "name": "sales_rep",
+              "value": "={{ $json.body.sales_rep || 'Unassigned' }}",
+              "type": "string"
+            },
+            {
+              "id": "375d2821-e9b2-46fc-bb6d-8b30b9334177",
+              "name": "call_date",
+              "value": "={{ $json.body.call_date || $now.format('yyyy-MM-dd HH:mm:ss') }}",
+              "type": "string"
+            },
+            {
+              "id": "cef21492-a600-46cd-84c1-42bd1fa0d6ab",
+              "name": "analysis_id",
+              "value": "={{ $now.toUnixInteger() }}_{{ Math.random().toString(36).substr(2, 9) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        80
+      ],
+      "id": "21949f89-a0be-4272-92bb-07c41e5b5776",
+      "name": "Set (Clean & Normalize Input)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d7d4bdfa-6549-4938-91d5-42f4934dee8a",
+              "leftValue": "={{ $json.transcript_clean.length }}",
+              "rightValue": 8000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        80
+      ],
+      "id": "a113f861-bc18-44a6-b3e3-6fca92f59e0f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        240
+      ],
+      "id": "69bb67bd-220d-4a1c-9367-e6c5f84b1cfc",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "sBTDlOpUwYgBh6wB",
+          "name": "n8n-regular"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e91bcca3-dc98-4312-aeec-ec18beec5d43",
+              "leftValue": "={{ $json['Deal Score'] }}",
+              "rightValue": 75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "b667fb4d-9fee-41d7-ac09-4dfa3dd23b67",
+              "leftValue": "={{ $json.Risks.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        96
+      ],
+      "id": "d1fd9a1a-d9f0-458e-8c7a-6322872b6eda",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        464
+      ],
+      "id": "56deb712-ac78-41f3-a5ed-ea8e9411ac7c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Call Intelligence",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        256,
+        464
+      ],
+      "id": "d56b1c47-ad46-47d0-8b0c-f60373ac6c16",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst objectionMap = {};\n\nitems.forEach(item => {\n  const objectionsField = item.json['Objections'];\n  \n  if (objectionsField && objectionsField.trim() !== '') {\n    const objections = objectionsField.split(';');\n    \n    objections.forEach(obj => {\n      const cleaned = obj.trim();\n      if (cleaned && cleaned.toLowerCase() !== 'none raised') {\n        objectionMap[cleaned] = (objectionMap[cleaned] || 0) + 1;\n      }\n    });\n  }\n});\n\n// Sort by count descending and take top 10\nconst sorted = Object.entries(objectionMap)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 10);\n\nconst timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');\n\nreturn sorted.map(([objection, count]) => ({\n  json: { \n    objection: objection,\n    count: count,\n    last_updated: timestamp\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        464
+      ],
+      "id": "13d2f0d0-1dc8-4b8c-92dc-bd643a2c8c79",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1570396302,
+          "mode": "list",
+          "cachedResultName": "Objection Trends",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=1570396302"
+        },
+        "clear": "specificRange",
+        "range": "A2:C100"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        464
+      ],
+      "id": "cd7b21a0-34a9-4288-9f22-fae21a90fee1",
+      "name": "Clear sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1570396302,
+          "mode": "list",
+          "cachedResultName": "Objection Trends",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=1570396302"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Objection": "={{ $json.objection }}",
+            "Count": "={{ $json.count }}",
+            "Last Updated": "={{ $json.last_updated }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Objection",
+              "displayName": "Objection",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Count",
+              "displayName": "Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Updated",
+              "displayName": "Last Updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        464
+      ],
+      "id": "80267daa-238f-4c6a-a8af-dfb93d013482",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        720
+      ],
+      "id": "38914dde-7146-4e37-981f-c4bf4880cdf4",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Call Intelligence",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        256,
+        720
+      ],
+      "id": "f8f3e133-1f03-4fd9-9663-f9d7eb4d3620",
+      "name": "Get row(s) in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst repStats = {};\n\nitems.forEach(item => {\n  const rep = item.json['Sales Rep'] || 'Unassigned';\n  \n  if (!repStats[rep]) {\n    repStats[rep] = {\n      total_calls: 0,\n      scores: [],\n      high_intent: 0,\n      buying_signals_count: 0,\n      objections_count: 0,\n      positive_sentiment: 0\n    };\n  }\n  \n  repStats[rep].total_calls++;\n  \n  const score = parseInt(item.json['Deal Score']) || 0;\n  repStats[rep].scores.push(score);\n  \n  if (item.json['Intent Level'] === 'High') {\n    repStats[rep].high_intent++;\n  }\n  \n  if (item.json['Sentiment'] === 'Positive') {\n    repStats[rep].positive_sentiment++;\n  }\n  \n  // Count buying signals\n  const signals = item.json['Buying Signals'] || '';\n  if (signals && signals.trim() !== '') {\n    repStats[rep].buying_signals_count += signals.split(';').filter(s => s.trim()).length;\n  }\n  \n  // Count objections\n  const objections = item.json['Objections'] || '';\n  if (objections && objections.trim() !== '') {\n    repStats[rep].objections_count += objections.split(';').filter(o => o.trim()).length;\n  }\n});\n\nconst timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');\n\nreturn Object.entries(repStats).map(([rep, stats]) => {\n  const avgScore = Math.round(\n    stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length\n  );\n  \n  const highIntentPercent = ((stats.high_intent / stats.total_calls) * 100).toFixed(1);\n  const positiveSentimentPercent = ((stats.positive_sentiment / stats.total_calls) * 100).toFixed(1);\n  \n  return {\n    json: {\n      sales_rep: rep,\n      total_calls: stats.total_calls,\n      avg_deal_score: avgScore,\n      high_intent_calls: stats.high_intent,\n      high_intent_percent: parseFloat(highIntentPercent),\n      total_buying_signals: stats.buying_signals_count,\n      total_objections: stats.objections_count,\n      positive_sentiment_percent: parseFloat(positiveSentimentPercent),\n      last_updated: timestamp\n    }\n  };\n}).sort((a, b) => b.json.avg_deal_score - a.json.avg_deal_score);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        720
+      ],
+      "id": "8bce9e30-30ad-4efd-8694-088c737e6427",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 685151071,
+          "mode": "list",
+          "cachedResultName": "Rep Performance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=685151071"
+        },
+        "clear": "specificRange",
+        "range": "A2:I100"
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        720
+      ],
+      "id": "af3b1fe5-176a-4679-861c-f3df49aeebaf",
+      "name": "Clear sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 685151071,
+          "mode": "list",
+          "cachedResultName": "Rep Performance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=685151071"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Sales Rep": "={{ $json.sales_rep }}",
+            "Total Calls": "={{ $json.total_calls }}",
+            "Avg Deal Score": "={{ $json.avg_deal_score }}",
+            "High Intent Calls": "={{ $json.high_intent_calls }}",
+            "High Intent %": "={{ $json.high_intent_percent }}",
+            "Total Buying Signals": "={{ $json.total_buying_signals }}",
+            "Total Objections": "={{ $json.total_objections }}",
+            "Positive Sentiment %": "={{ $json.positive_sentiment_percent }}",
+            "Last Updated": "={{ $json.last_updated }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Sales Rep",
+              "displayName": "Sales Rep",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total Calls",
+              "displayName": "Total Calls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Avg Deal Score",
+              "displayName": "Avg Deal Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "High Intent Calls",
+              "displayName": "High Intent Calls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "High Intent %",
+              "displayName": "High Intent %",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total Buying Signals",
+              "displayName": "Total Buying Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total Objections",
+              "displayName": "Total Objections",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Positive Sentiment %",
+              "displayName": "Positive Sentiment %",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Updated",
+              "displayName": "Last Updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        720
+      ],
+      "id": "89da342b-a218-4ba6-abaa-1b0daea041a0",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const reps = $input.all();\n\nif (!reps.length) return [];\n\n// Sort reps by Avg Deal Score (descending)\nconst sortedReps = reps.sort((a, b) =>\n  Number(b.json['Avg Deal Score']) - Number(a.json['Avg Deal Score'])\n);\n\n// Top performer = highest score\nconst topPerformer = sortedReps[0];\n\n// Format team summary\nconst teamSummary = sortedReps.map((rep, idx) => `\n${idx + 1}. ${rep.json['Sales Rep']}\n   Calls: ${rep.json['Total Calls']} | \n   Avg Score: ${rep.json['Avg Deal Score']} | \n   High Intent: ${rep.json['High Intent %']}%\n`).join('\\n');\n\nreturn [{\n  json: {\n    message: `📊 Weekly Sales Performance Report\n\n🏆 TOP PERFORMER: ${topPerformer.json['Sales Rep']}\n   • Avg Deal Score: ${topPerformer.json['Avg Deal Score']}/100\n   • High Intent Calls: ${topPerformer.json['High Intent Calls']} (${topPerformer.json['High Intent %']}%)\n   • Positive Sentiment: ${topPerformer.json['Positive Sentiment %']}%\n\n📈 TEAM RANKING:\n${teamSummary}\n\nFull details in Sales Intelligence Hub → Rep Performance sheet.`\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        720
+      ],
+      "id": "0413562d-b9f1-4a64-9c8b-8c7b183187c4",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1328,
+        720
+      ],
+      "id": "12602c49-d720-487d-93c0-dc53c4a8c816",
+      "name": "Send a text message1",
+      "webhookId": "6d9ac694-0c3e-4441-b668-2265c8425435",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 21,
+              "triggerAtMinute": 59
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        928
+      ],
+      "id": "5bacf4f2-995c-4eb0-b7c0-cff349e6d34e",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Call Intelligence",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        928
+      ],
+      "id": "89911c98-0790-4ddf-a2ab-a8e74fb69e18",
+      "name": "Get row(s) in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst today = new Date();\nconst oneWeekAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));\n\nconst riskyDeals = items.filter(item => {\n  const callDateStr = item.json['Call Date'];\n  const callDate = new Date(callDateStr);\n  \n  const risks = item.json['Risks'] || '';\n  const hasRisks = risks.trim() !== '' && risks.toLowerCase() !== 'none identified';\n  \n  const isRecent = callDate >= oneWeekAgo;\n  \n  return hasRisks && isRecent;\n}).map(item => {\n  const callDate = new Date(item.json['Call Date']);\n  const daysSince = Math.floor((today - callDate) / (1000 * 60 * 60 * 24));\n  \n  const score = parseInt(item.json['Deal Score']);\n  let status;\n  if (score >= 70) {\n    status = 'Active - Monitor';\n  } else if (score >= 50) {\n    status = 'Active - Requires Attention';\n  } else {\n    status = 'At Risk - Urgent Action';\n  }\n  \n  return {\n    json: {\n      report_date: today.toISOString().split('T')[0],\n      deal_name: item.json['Deal Name'],\n      company: item.json['Company'],\n      sales_rep: item.json['Sales Rep'],\n      deal_score: item.json['Deal Score'],\n      risks: item.json['Risks'],\n      days_since_call: daysSince,\n      status: status\n    }\n  };\n}).sort((a, b) => a.json.deal_score - b.json.deal_score);\n\nreturn riskyDeals;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        928
+      ],
+      "id": "9d777360-fd75-47e0-b4b6-c2b249b30160",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1169302920,
+          "mode": "list",
+          "cachedResultName": "Weekly Risk Report",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=1169302920"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Report Date": "={{ $json.report_date }}",
+            "Deal Name": "={{ $json.deal_name }}",
+            "Company": "={{ $json.company }}",
+            "Sales Rep": "={{ $json.sales_rep }}",
+            "Deal Score": "={{ $json.deal_score }}",
+            "Risks": "={{ $json.risks }}",
+            "Days Since Call": "={{ $json.days_since_call }}",
+            "Status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Report Date",
+              "displayName": "Report Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deal Name",
+              "displayName": "Deal Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sales Rep",
+              "displayName": "Sales Rep",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deal Score",
+              "displayName": "Deal Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Risks",
+              "displayName": "Risks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Days Since Call",
+              "displayName": "Days Since Call",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        912
+      ],
+      "id": "7f69743a-09b2-4396-be6b-3b85343abb54",
+      "name": "Append row in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "23f9e636-c3ba-418e-a701-a12d73d20195",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        928
+      ],
+      "id": "9dae8bf7-decc-483e-b659-cd4cd6521d76",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Normalize + classify deals\nconst urgentDeals = [];\nconst attentionDeals = [];\n\nitems.forEach(item => {\n  const status = item.json['Status'] || '';\n\n  if (status.toLowerCase().includes('urgent')) {\n    urgentDeals.push(item);\n  } else if (\n    status.toLowerCase().includes('attention') ||\n    status.toLowerCase().includes('monitor')\n  ) {\n    attentionDeals.push(item);\n  }\n});\n\nconst reportDate = new Date().toLocaleDateString();\n\nconst formatDeals = (deals) =>\n  deals.length\n    ? deals.map(d => `\n- ${d.json['Deal Name']} (${d.json['Company']})\n  Rep: ${d.json['Sales Rep']}\n  Score: ${d.json['Deal Score']}/100\n  Risks: ${d.json['Risks']}\n  Days Since Call: ${d.json['Days Since Call']}\n`).join('\\n')\n    : '\\n- None';\n\nreturn [\n  {\n    json: {\n      subject: `🚨 Weekly At-Risk Deals Report – ${items.length} Deals Reviewed`,\n      body: `Weekly At-Risk Deals Report\nGenerated: ${reportDate}\n\n═══════════════════════════════════════\n\n🔴 URGENT ACTION REQUIRED (${urgentDeals.length} deals):\n${formatDeals(urgentDeals)}\n\n⚠️ REQUIRES ATTENTION (${attentionDeals.length} deals):\n${formatDeals(attentionDeals)}\n\n═══════════════════════════════════════\n\nReview full analysis in:\nSales Intelligence Hub → Weekly Risk Report\n\nAction Required:\n• Follow up on urgent deals within 24 hours\n• Monitor attention-level deals and reassess next week\n`\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        912
+      ],
+      "id": "cc16ca0e-0d99-4e84-9a87-e4051803dccc",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        912
+      ],
+      "id": "073f8659-7e51-41f2-8911-2397486eab57",
+      "name": "Send a message",
+      "webhookId": "b7cc169f-3307-4e4f-87eb-41d48692e571",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 23,
+              "triggerAtMinute": 59
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        1136,
+        464
+      ],
+      "id": "f7fd8d67-69fe-4f84-8b1d-fce6f92db108",
+      "name": "Schedule Trigger3"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Call Intelligence",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        464
+      ],
+      "id": "06d9c758-bb04-42a4-8ea0-384b368db957",
+      "name": "Get row(s) in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Define today explicitly (fixes your error)\nconst today = new Date().toISOString().slice(0, 10);\n\n// Extract all valid call dates (YYYY-MM-DD)\nconst dates = items\n  .map(item => item.json['Call Date'])\n  .filter(Boolean)\n  .map(d => d.split(' ')[0]);\n\n// If no dates exist, stop safely\nif (dates.length === 0) {\n  return [];\n}\n\n// Use latest date from dataset (best practice)\nconst latestDate = dates.sort().pop();\n\n// Filter calls for that date\nconst todaysCalls = items.filter(item =>\n  item.json['Call Date']?.startsWith(latestDate)\n);\n\n// ---------- Metrics ----------\n\n// Average deal score\nconst scores = todaysCalls\n  .map(c => Number(c.json['Deal Score']))\n  .filter(n => !isNaN(n));\n\nconst avgScore = scores.length\n  ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)\n  : 0;\n\n// High intent deals\nconst highIntentCount = todaysCalls.filter(\n  c => (c.json['Intent Level'] || '').toLowerCase() === 'high'\n).length;\n\n// At-risk deals\nconst atRiskCount = todaysCalls.filter(c => {\n  const risks = (c.json['Risks'] || '').trim().toLowerCase();\n  return risks && !['none', 'none identified', 'n/a'].includes(risks);\n}).length;\n\n// Top objection\nconst objectionMap = {};\n\ntodaysCalls.forEach(call => {\n  const objections = call.json['Objections'];\n  if (!objections) return;\n\n  objections.split(';').forEach(o => {\n    const cleaned = o.trim();\n    if (!cleaned) return;\n    objectionMap[cleaned] = (objectionMap[cleaned] || 0) + 1;\n  });\n});\n\nconst topObjection =\n  Object.entries(objectionMap)\n    .sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';\n\n// Best performing rep\nconst repScores = {};\n\ntodaysCalls.forEach(call => {\n  const rep = call.json['Sales Rep'] || 'Unknown';\n  const score = Number(call.json['Deal Score']);\n  if (isNaN(score)) return;\n\n  if (!repScores[rep]) repScores[rep] = [];\n  repScores[rep].push(score);\n});\n\nconst bestRep =\n  Object.entries(repScores)\n    .map(([rep, scores]) => ({\n      rep,\n      avg: scores.reduce((a, b) => a + b, 0) / scores.length\n    }))\n    .sort((a, b) => b.avg - a.avg)[0]?.rep || 'N/A';\n\n// ---------- Output ----------\nreturn [\n  {\n    json: {\n      report_date: latestDate,\n      system_today: today,\n      total_calls_analyzed: todaysCalls.length,\n      avg_deal_score: avgScore,\n      high_intent_count: highIntentCount,\n      at_risk_deals: atRiskCount,\n      top_objection: topObjection,\n      best_performing_rep: bestRep,\n      generated_at: new Date().toISOString().slice(0, 19).replace('T', ' ')\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        464
+      ],
+      "id": "12c41ef8-a84b-4372-8b09-70cc9c82b7ab",
+      "name": "Code in JavaScript6",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 355210388,
+          "mode": "list",
+          "cachedResultName": "Daily Summary Stats",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=355210388"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.report_date }}",
+            "Total Calls Analyzed": "={{ $json.total_calls_analyzed }}",
+            "Avg Deal Score": "={{ $json.avg_deal_score }}",
+            "High Intent Count": "={{ $json.high_intent_count }}",
+            "At Risk Deals": "={{ $json.at_risk_deals }}",
+            "Top Objection": "={{ $json.top_objection }}",
+            "Best Performing Rep": "={{ $json.best_performing_rep }}",
+            "Generated At": "={{ $json.generated_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Calls Analyzed",
+              "displayName": "Total Calls Analyzed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Avg Deal Score",
+              "displayName": "Avg Deal Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "High Intent Count",
+              "displayName": "High Intent Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "At Risk Deals",
+              "displayName": "At Risk Deals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Top Objection",
+              "displayName": "Top Objection",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Best Performing Rep",
+              "displayName": "Best Performing Rep",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Generated At",
+              "displayName": "Generated At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1760,
+        464
+      ],
+      "id": "7d01ff8d-a981-4a3f-9e83-062cec811ca0",
+      "name": "Append row in sheet4",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=TRANSCRIPT:\n{{ $json.transcript_clean }}\n\nDEAL CONTEXT:\n- Deal Name: {{ $json.deal_name }}\n- Company: {{ $json.company_name }}\n- Sales Rep: {{ $json.sales_rep }}\n\n",
+        "options": {
+          "systemMessage": "=You are an expert sales intelligence analyst. Analyze the following sales conversation transcript and extract structured insights.\n\nTASK:\nAnalyze this sales conversation and return ONLY a valid JSON object with the following structure:\n\n{\n  \"call_summary\": \"Brief 2-3 sentence summary of the call\",\n  \"intent_level\": \"Low | Medium | High\",\n  \"buying_signals\": [\"signal1\", \"signal2\"],\n  \"objections\": [\"objection1\", \"objection2\"],\n  \"risks\": [\"risk1\", \"risk2\"],\n  \"sentiment\": \"Positive | Neutral | Negative\",\n  \"deal_score\": 75,\n  \"recommended_action\": \"Clear next step recommendation\",\n  \"follow_up_points\": [\"point1\", \"point2\", \"point3\"]\n}\n\nANALYSIS GUIDELINES:\n- Intent Level: Evaluate readiness to buy (Low=research, Medium=evaluating, High=ready to purchase)\n- Buying Signals: Look for budget mentions, timeline urgency, decision-maker involvement, competitor comparisons\n- Objections: Price concerns, feature gaps, timing issues, competitor preferences\n- Risks: Authority unclear, budget constraints, long decision timeline, competitor advantage\n- Sentiment: Overall tone (Positive=enthusiastic, Neutral=informational, Negative=frustrated)\n- Deal Score: 0-100 likelihood of closing (consider intent, objections, timeline, authority)\n- Recommended Action: Specific next step (demo, proposal, follow-up call, trial, etc.)\n- Follow-up Points: 3-5 key topics to address in next interaction\n\nReturn ONLY valid JSON. No markdown, no code blocks, no explanations."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        704,
+        96
+      ],
+      "id": "ed79d700-d73e-4c77-bd21-774b2e2a4f02",
+      "name": "AI Agent (Sales Intelligence Extraction)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw AI output string\nconst rawOutput = $input.item.json.output || '';\n\n// Remove ```json and ``` wrappers safely\nconst cleaned = rawOutput\n  .replace(/```json/i, '')\n  .replace(/```/g, '')\n  .trim();\n\n// Parse JSON\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('Failed to parse AI JSON output');\n}\n\n// Return structured result\nreturn {\n  json: {\n    call_summary: parsed.call_summary || '',\n    intent_level: parsed.intent_level || '',\n    buying_signals: Array.isArray(parsed.buying_signals)\n      ? parsed.buying_signals.join('; ')\n      : '',\n    objections: Array.isArray(parsed.objections)\n      ? parsed.objections.join('; ')\n      : '',\n    risks: Array.isArray(parsed.risks)\n      ? parsed.risks.join('; ')\n      : '',\n    sentiment: parsed.sentiment || '',\n    deal_score: parsed.deal_score || 0,\n    recommended_action: parsed.recommended_action || '',\n    follow_up_points: Array.isArray(parsed.follow_up_points)\n      ? parsed.follow_up_points.join('; ')\n      : ''\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        96
+      ],
+      "id": "c7f80185-7cde-4dc2-ad44-d0801c42f0a1",
+      "name": "PARSE OUTPUT"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4",
+          "mode": "list",
+          "cachedResultName": "AI Sales Call Analyzer (Text-based)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fqZX62Ciss-T7mOP3qIsd9OyeWoNfwmaPQL-pffaGM4/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Call Summary": "={{ $json.call_summary }}",
+            "Intent Level": "={{ $json.intent_level }}",
+            "Buying Signals": "={{ $json.buying_signals }}",
+            "Objections": "={{ $json.objections }}",
+            "Risks": "={{ $json.risks }}",
+            "Sentiment": "={{ $json.sentiment }}",
+            "Deal Score": "={{ $json.deal_score }}",
+            "Recommended Action": "={{ $json.recommended_action }}",
+            "Follow-up Points": "={{ $json.follow_up_points }}",
+            "Analysis ID": "={{ $('Set (Clean & Normalize Input)').item.json.analysis_id }}",
+            "Call Date": "={{ $('Set (Clean & Normalize Input)').item.json.call_date }}",
+            "Deal Name": "={{ $('Set (Clean & Normalize Input)').item.json.deal_name }}",
+            "Company": "={{ $('Set (Clean & Normalize Input)').item.json.company_name }}",
+            "Sales Rep": "={{ $('Set (Clean & Normalize Input)').item.json.sales_rep }}",
+            "Raw Transcript": "={{ $('Set (Clean & Normalize Input)').item.json.transcript_clean }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Analysis ID",
+              "displayName": "Analysis ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Call Date",
+              "displayName": "Call Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deal Name",
+              "displayName": "Deal Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sales Rep",
+              "displayName": "Sales Rep",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Call Summary",
+              "displayName": "Call Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Intent Level",
+              "displayName": "Intent Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Buying Signals",
+              "displayName": "Buying Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Objections",
+              "displayName": "Objections",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Risks",
+              "displayName": "Risks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sentiment",
+              "displayName": "Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deal Score",
+              "displayName": "Deal Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Follow-up Points",
+              "displayName": "Follow-up Points",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Raw Transcript",
+              "displayName": "Raw Transcript",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        96
+      ],
+      "id": "31aad5f3-682a-42f4-804b-f506ea643ef0",
+      "name": "STORE DATA",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=🚨 SALES ALERT: {{ $json['Deal Name'] }}\n📊 Deal Score: {{ $json['Deal Score'] }}/100\n🏢 Company: {{ $json.Company }}\n👤 Rep: {{ $json['Sales Rep'] }}\n📈 Intent: {{ $json['Intent Level'] }}\n😊 Sentiment: {{ $json.Sentiment }}\n\n✅ BUYING SIGNALS:\n{{ $json['Buying Signals'] || 'None detected' }}\n\n⚠️ OBJECTIONS:\n{{ $json.Objections || 'None raised'}}\n\n🔴 RISKS:\n{{ $json.Risks || 'None identified'  }}\n\n💡 RECOMMENDED ACTION:\n{{ $json['Recommended Action'] }}\n\n📝 FOLLOW-UP:\n{{ $json['Follow-up Points'] }}\n\n🔗 Analysis ID: {{ $json['Analysis ID'] }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1760,
+        80
+      ],
+      "id": "65a2b091-dd92-4f29-b8ed-7f40e152f18f",
+      "name": "SEND MESSAGE",
+      "webhookId": "6d9ac694-0c3e-4441-b668-2265c8425435",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## MAIN AUTOMATION\n",
+        "height": 336,
+        "width": 2000,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        16
+      ],
+      "id": "87dd137b-b75e-4a82-ac21-a5bd5f2a8890",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Objection Trend Tracking\n",
+        "height": 224,
+        "width": 1088,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        384
+      ],
+      "id": "e502a062-9fbd-4dfb-9d05-099f1fa16018",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Daily Summary Dashboard\n",
+        "height": 224,
+        "width": 896,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        384
+      ],
+      "id": "cb37e92a-c758-4dac-a97d-02d0d2fd45d6",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "##  Rep-Wise Performance Analysis\n",
+        "height": 192,
+        "width": 1552,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        672
+      ],
+      "id": "f6ee8b9a-2187-428e-9005-0c4e3841de38",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "##  Weekly Deal Risk Summary\n",
+        "height": 192,
+        "width": 1552,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        880
+      ],
+      "id": "3e6bbded-af9a-4150-a536-a633f975501f",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set (Clean & Normalize Input)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Clean & Normalize Input)": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent (Sales Intelligence Extraction)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (Sales Intelligence Extraction)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "SEND MESSAGE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Clear sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger3": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript6": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (Sales Intelligence Extraction)": {
+      "main": [
+        [
+          {
+            "node": "PARSE OUTPUT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PARSE OUTPUT": {
+      "main": [
+        [
+          {
+            "node": "STORE DATA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STORE DATA": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "de1848f2-8590-4c79-aec1-dfb3d27da924",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "986IZttP6ryfEWl4",
+  "tags": []
+}

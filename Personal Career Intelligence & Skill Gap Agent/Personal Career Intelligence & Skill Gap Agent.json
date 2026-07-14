@@ -1,0 +1,1504 @@
+{
+  "name": "Personal Career Intelligence & Skill Gap Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5a27c4f1-dc5e-46e3-890a-27ffa3eaa6c6",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "datasetId": "={{ $json.storageIds.datasets.default }}",
+        "offset": {},
+        "options": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "89915d0e-af89-4cd9-abed-4c5bf5a5be10",
+      "name": "Get dataset items",
+      "credentials": {
+        "apifyApi": {
+          "id": "1dNqJ0V4rvXaZDMX",
+          "name": "Apify PromptLancer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "liquid/lfm-2.5-1.2b-thinking:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        832,
+        176
+      ],
+      "id": "6a82d19d-de7d-49be-bc5d-a6ddd9474375",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        208
+      ],
+      "id": "b24d7b7d-3d5e-4533-aedb-b082d5438be8",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "MXLpngmVpE8WTESQr",
+          "mode": "list",
+          "cachedResultName": "🚀 Indeed jobs scraper [PPR] (borderline/indeed-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/MXLpngmVpE8WTESQr/input"
+        },
+        "customBody": "{\n  \"query\": \"AI Engineer\",\n  \"country\": \"in\",\n  \"enableUniqueJobs\": true,\n  \"includeSimilarJobs\": false,\n  \"maxRows\": 10\n}",
+        "timeout": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "fc5cdb84-7b97-4333-8a0c-9f74d6ab98e4",
+      "name": "Job Listing Scraper",
+      "credentials": {
+        "apifyApi": {
+          "id": "1dNqJ0V4rvXaZDMX",
+          "name": "Apify PromptLancer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $input.all();\n\nreturn [{\n  json: {\n    totalJobs: jobs.length,\n    descriptions: jobs.map(job => ({\n      title: job.json.title,\n      company: job.json.companyName,\n      description: job.json.descriptionText\n    }))\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d7498832-877d-47cb-b2af-8c256225d598",
+      "name": "Output parser"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following {{ $json.totalJobs }} job listings and identify the most in-demand skills.\n\nJob Listings:\n{{ JSON.stringify($json.descriptions, null, 2) }}\n\nRequirements:\n\n* Extract all technical skills, tools, frameworks, programming languages, cloud platforms, AI/ML technologies, databases, and software mentioned.\n* Extract soft skills, methodologies, and business competencies.\n* Count how frequently each skill appears across all job listings.\n* Group skills into High Demand, Medium Demand, and Low Demand based on frequency.\n* Ignore company information, diversity statements, benefits, and generic hiring text.\n* Return only valid JSON.\n\n\nIMPORTANT:\nReturn raw JSON only.\nDo not use markdown code blocks.\nDo not include any explanation.\nThe response must be parseable by JSON.parse().\n",
+        "options": {
+          "systemMessage": "=You are an expert career intelligence analyst specializing in labor market research.\n\nAnalyze multiple job descriptions and identify:\n\n1. Technical Skills\n\n* Programming languages\n* Frameworks\n* Libraries\n* Databases\n* Cloud platforms\n* DevOps tools\n* AI/ML technologies\n* Data engineering tools\n\n2. Professional Skills\n\n* Communication\n* Leadership\n* Collaboration\n* Problem solving\n* Project management\n\n3. Methodologies\n\n* Agile\n* Scrum\n* DevOps\n* MLOps\n* CI/CD\n* Software Development Lifecycle\n\nDemand Classification:\n\n* high = appears in 50% or more of jobs\n* medium = appears in 20% to 49% of jobs\n* low = appears in less than 20% of jobs\n\nCRITICAL OUTPUT RULES:\n\n* Return ONLY valid JSON.\n* Do NOT use markdown.\n* Do NOT wrap output in ```json.\n* Do NOT include explanations.\n* Do NOT include comments.\n* Do NOT include text before or after the JSON.\n* All strings must use double quotes.\n* All array elements must be comma separated.\n* No trailing commas.\n* Output must be valid JSON.parse() compatible.\n\nReturn exactly this structure:\n\n{\n\"skills\": [\n{\n\"name\": \"Python\",\n\"category\": \"Programming Language\",\n\"frequency\": \"high\",\n\"occurrences\": 8\n}\n],\n\"top_skills\": [\"Python\"],\n\"technical_skills_count\": 1,\n\"soft_skills_count\": 0,\n\"highlighted_skills\": [\"Python\"]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        832,
+        0
+      ],
+      "id": "3973eb1a-1bc1-4e9b-8a9a-23b2fad871b9",
+      "name": "AI Agent — Skill Extraction"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawOutput = $json.output || '';\n\n// Remove markdown fences\nlet cleaned = rawOutput\n  .replace(/```json\\s*/gi, '')\n  .replace(/```/g, '')\n  .trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  // Attempt basic JSON repairs\n  try {\n    cleaned = cleaned\n      .replace(/,\\s*}/g, '}')   // remove trailing commas in objects\n      .replace(/,\\s*]/g, ']')   // remove trailing commas in arrays\n      .replace(/[\\u0000-\\u001F]+/g, ' '); // remove control chars\n\n    parsed = JSON.parse(cleaned);\n  } catch (secondError) {\n    return [{\n      json: {\n        skills: [],\n        top_skills: [],\n        technical_skills_count: 0,\n        soft_skills_count: 0,\n        highlighted_skills: [],\n        parse_error: secondError.message\n      }\n    }];\n  }\n}\n\nreturn [\n  {\n    json: {\n      skills: parsed.skills || [],\n      top_skills: parsed.top_skills || [],\n      technical_skills_count: parsed.technical_skills_count || 0,\n      soft_skills_count: parsed.soft_skills_count || 0,\n      highlighted_skills: parsed.highlighted_skills || []\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "1966216d-f5b6-4ed4-8744-ebd16294c9ba",
+      "name": "AI Agent output parser"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "appmEJcPqEsQsVu7O",
+          "mode": "list",
+          "cachedResultName": "Smart Inbox Database",
+          "cachedResultUrl": "https://airtable.com/appmEJcPqEsQsVu7O"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblDIe008D0MPJcrl",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appmEJcPqEsQsVu7O/tblDIe008D0MPJcrl"
+        },
+        "id": "recrm6gpl47geQPMH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "5c0f398d-cc1e-4e16-a79a-92a3c736db47",
+      "name": " Fetch Skill Profile — Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "QGcOEvFJqv9BZc3a",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get market skills from previous node\nconst marketSkills = $('AI Agent output parser').first().json.skills || [];\n\n// Get user skills from Airtable\nconst skillRecords = $(' Fetch Skill Profile — Airtable').all();\n\nconst mySkills = skillRecords.map(item =>\n  String(item.json['Skill Name'] || '')\n    .toLowerCase()\n    .trim()\n);\n\n// Find missing skills\nconst gaps = marketSkills\n  .filter(skill =>\n    !mySkills.includes(skill.name.toLowerCase())\n  )\n  .sort((a, b) => {\n    const order = {\n      high: 0,\n      medium: 1,\n      low: 2\n    };\n\n    return (order[a.frequency] ?? 999) -\n           (order[b.frequency] ?? 999);\n  });\n\nconst topSkill = gaps[0] || null;\n\n// Find category for the top skill if it exists in Airtable\nconst topSkillCategory = skillRecords.map(item =>\n  String(item.json['Category'] || '')\n    .toLowerCase()\n    .trim()\n);;\n\nif (topSkill) {\n  const matchingSkill = skillRecords.find(item =>\n    String(item.json['Skill Name'] || '')\n      .toLowerCase()\n      .trim() === topSkill.name.toLowerCase()\n  );\n\n//   topSkillCategory = matchingSkill\n//     ? matchingSkill.json.Category || null\n//     : topSkill.category || null;\n}\n\n// Get original jobs from Apify\nconst jobs = $('Get dataset items').all();\n\n// Find jobs mentioning the top missing skill\nconst top5Jobs = topSkill\n  ? jobs\n      .filter(job =>\n        (job.json.descriptionText || '')\n          .toLowerCase()\n          .includes(topSkill.name.toLowerCase())\n      )\n      .slice(0, 5)\n      .map(job => ({\n        title: job.json.title,\n        company: job.json.companyName,\n        location: job.json.location?.fullAddress,\n        url: job.json.jobUrl\n      }))\n  : [];\n\nreturn [{\n  json: {\n    targetRole: 'AI Engineer',\n    gaps,\n    topSkill,\n    topSkillCategory,\n    top5Jobs,\n    totalGaps: gaps.length,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "472b2af7-5320-4b36-9b77-43c1317ca9f8",
+      "name": "Gap Analysis"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create this week's personalized career digest using the following data.\n\nTarget Role:\n{{ $json.targetRole }}\n\nTop Skill Gap:\n{{ $json.topSkill.name }}\n\nSkill Category:\n{{ $json.gaps[2].name }}\n\nMarket Demand:\n{{ $json.topSkill.frequency }}\n\nTotal Skill Gaps Identified:\n{{ $json.totalGaps }}\n\n\n\nRelevant Jobs:\n{{ JSON.stringify($json.top5Jobs, null, 2) }}\n\nGenerate a concise Telegram-friendly weekly digest following the required format.\n",
+        "options": {
+          "systemMessage": "=You are an expert career coach and labor market analyst.\n\nYour task is to create a personalized weekly career digest for job seekers based on their skill gaps, recommended learning resources, and relevant job opportunities.\n\nGuidelines:\n\n* Write in a friendly, encouraging, and actionable tone.\n* Optimize the message for Telegram readability.\n* Use emojis appropriately.\n* Focus on the single most important skill gap.\n* Explain why the skill matters in today's job market.\n* Prioritize practical next steps.\n* Keep the digest concise and easy to scan.\n* Total length must remain under 400 words.\n\nRequired Structure:\n\n📊 Your Weekly Career Digest\n\n1. One-line summary highlighting the most important insight from the week's analysis.\n\n2. 🎯 This week's skill to build\n\n* Maximum 50 words\n* Explain why this skill is important\n* Mention its category and market demand level\n\n3. 📚 Recommended courses\n\n* List the provided courses as bullet points\n* Include course names and links if available\n\n4. 💼 Relevant jobs\n\n* List 3-5 relevant jobs\n* Include job title and application link\n\n5. Motivational closing line\n\n* Short and encouraging\n* Focus on continuous improvement and career growth\n\nOutput plain text only.\nDo not use markdown code blocks.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1808,
+        0
+      ],
+      "id": "da25e315-7c40-4481-8e48-f090fb0bf095",
+      "name": "Compose Weekly Digest"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2176,
+        -80
+      ],
+      "id": "cd2b0a7e-4753-4244-9fe9-3b0e5dc20293",
+      "name": "Deliver Digest",
+      "webhookId": "5762a0fd-dfba-47e2-b536-30b08e906003",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "Your Weekly Career Digest",
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2176,
+        128
+      ],
+      "id": "1e4cd869-44c0-4312-aaac-e5af561900ba",
+      "name": "Deliver Digest1",
+      "webhookId": "e5c4a2c3-d3b7-486d-8bc3-225127018d4a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-06-11T07:39:56.471-04:00",
+          "Readable date": "June 11th 2026, 7:39:56 am",
+          "Readable time": "7:39:56 am",
+          "Day of week": "Thursday",
+          "Year": "2026",
+          "Month": "June",
+          "Day of month": "11",
+          "Hour": "07",
+          "Minute": "39",
+          "Second": "56",
+          "Timezone": "America/New_York (UTC-04:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Get dataset items": [
+      {
+        "json": {
+          "jobKey": "6244fe5839935947",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 5
+          },
+          "title": "AI Engineer",
+          "jobType": [
+            "Full-time"
+          ],
+          "descriptionHtml": "<div><p>Job Characteristics: Independently design, implement, and deploy intelligent systems powered by large language models (LLMs), agent orchestration frameworks, and embedding-based retrieval solutions. This role blends hands-on engineering with solution thinking &mdash; focusing on scalable workflows, cloud-native delivery, and real-world GenAI application integration.</p><p></p><p>\nEducation/Work Experience: Degree and 2-4 years experience.</p><p></p><p>\nIndependence Level/Reports to: Normally reports to AI Engineering Manager.</p><p><b><br>\nOur Commitment to a Culture of Inclusion &amp; Belonging</b><br>\nEcolab is committed to fair and equal treatment of associates and applicants and furthering the principles of Equal Opportunity to Employment. We will recruit, hire, promote, transfer and provide opportunities for advancement based on individual qualifications and job performance in all matters affecting employment, compensation, benefits, working conditions, and opportunities for advancement. Ecolab will not discriminate against any associate or applicant for employment because of race, religion, color, creed, national origin,citizenship status, sex, sexual orientation, gender identity and expressions, genetic information, marital status, age, or disability.</p></div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/7ced14323e063af745aeba0399e21f5a",
+          "descriptionText": "Job Characteristics: Independently design, implement, and deploy intelligent systems powered by large language models (LLMs), agent orchestration frameworks, and embedding-based retrieval solutions. This role blends hands-on engineering with solution thinking — focusing on scalable workflows, cloud-native delivery, and real-world GenAI application integration.\n\nEducation/Work Experience: Degree and 2-4 years experience.\n\nIndependence Level/Reports to: Normally reports to AI Engineering Manager.\n\nOur Commitment to a Culture of Inclusion & Belonging\nEcolab is committed to fair and equal treatment of associates and applicants and furthering the principles of Equal Opportunity to Employment. We will recruit, hire, promote, transfer and provide opportunities for advancement based on individual qualifications and job performance in all matters affecting employment, compensation, benefits, working conditions, and opportunities for advancement. Ecolab will not discriminate against any associate or applicant for employment because of race, religion, color, creed, national origin,citizenship status, sex, sexual orientation, gender identity and expressions, genetic information, marital status, age, or disability.",
+          "companyName": "Ecolab",
+          "companyUrl": "https://in.indeed.com/cmp/Ecolab",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/c8dfe45112644c4ce87025b5e033796e",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Bengaluru, Karnataka",
+            "formattedAddressShort": "Bengaluru, Karnataka",
+            "latitude": 12.976711,
+            "longitude": 77.596596,
+            "streetAddress": null,
+            "fullAddress": "Bengaluru, Karnataka"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.5,
+            "count": 4279
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Full-time",
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-06-05",
+          "expired": false,
+          "source": "Ecolab",
+          "age": "6 days ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=6244fe5839935947",
+          "applyUrl": "https://jobs.ecolab.com/global/en/job/EIYEIEUSR00294882EXTERNALENGLOBAL/AI-Engineer?utm_source=srm_indeed_org",
+          "emails": [],
+          "companyIndustry": "INDUSTRIAL_MANUFACTURING",
+          "companyAddresses": [
+            "1 Ecolab Place\r\nSt. Paul, MN 55102"
+          ],
+          "companyNumEmployees": "10,000+",
+          "companyRevenue": "more than $10B (USD)",
+          "companyDescription": "A trusted partner for millions of customers, Ecolab (ECL) is a global sustainability leader offering water, hygiene and infection prevention solutions and services that protect people and the resources vital to life. Building on a century of innovation, Ecolab has annual sales of $15 billion and more than 48,000 associates, Ecolab delivers comprehensive solutions, data-driven insights and personalized service to advance food safety, maintain clean and safe environments, optimize water and energy use, and improve operational efficiencies and sustainability for customers in the food, healthcare, hospitality and industrial markets in more than 170 countries around the world.\r\n\r\nWhen you come to work at Ecolab, you get to take on some of the world’s most meaningful challenges and have the opportunity to learn and grow, shape your career, make an impact and quickly see the importance of your work.",
+          "companyFounded": {
+            "year": 1924
+          },
+          "companyBriefDescription": "Ecolab is the global leader in water, hygiene and infection prevention solutions and services. Every day, we help make the world cleaner, safer and healthier – protecting people and vital resources.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/ecolabcareers",
+            "instagram": "https://www.instagram.com/ecolab_inc",
+            "twitter": "https://twitter.com/Ecolabcareers",
+            "customLinks": [
+              {
+                "name": "LinkedIn Ecolab company page",
+                "url": "https://www.linkedin.com/company/ecolab?trk=top_nav_home"
+              },
+              {
+                "name": "Ecolab Careers Website",
+                "url": "https://jobs.ecolab.com/"
+              }
+            ],
+            "corporateWebsite": "https://jobs.ecolab.com/"
+          },
+          "companyCeo": {
+            "name": "Christophe Beck",
+            "photoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_ceophoto/512x512/0ca0376e71c5ebfec2b58c545890420a",
+            "startDate": "2021-01-01"
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "70d169b4a48c4b06",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 8
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "<div><div><div><div><h2 class=\"jobSectionHeader\"><b>Job Description:</b></h2>\n<p>As an AI Engineer at OmnifiCX, you will design, build, and deploy intelligent AI-driven capabilities that power our commerce platform. You will work at the intersection of machine learning, backend engineering, and product intelligence &mdash; delivering features like smart order routing, predictive analytics, conversational AI assistants, and automation pipelines. You will collaborate closely with product, engineering, and data teams to translate business problems into production-grade AI solutions.</p>\n<h3 class=\"jobSectionHeader\"><b>Roles &amp; Responsibilities:</b></h3>\n<h4 class=\"jobSectionHeader\"><b>AI/ML Model Development:</b></h4>\n<ul><li>Design, train, and deploy machine learning models for commerce use cases such as order routing optimization, demand forecasting, fraud detection, and customer intent prediction.</li>\n<li>Build and maintain end-to-end ML pipelines covering data ingestion, feature engineering, model training, evaluation, and serving.</li>\n<li>Experiment with state-of-the-art approaches including LLMs, transformers, and classical ML algorithms depending on the problem context.</li>\n</ul><h4 class=\"jobSectionHeader\"><b>LLM &amp; Generative AI Integration:</b></h4>\n<ul><li>Integrate large language models (e.g., OpenAI GPT, Anthropic Claude, open-source models via Hugging Face) into OmnifiCX product workflows such as intelligent order assistants, auto-summarization, and natural language query interfaces.</li>\n<li>Design prompt engineering strategies, RAG (Retrieval-Augmented Generation) pipelines, and agentic workflows for commerce-specific scenarios.</li>\n<li>Evaluate and benchmark LLM outputs for accuracy, latency, cost, and safety before production rollout.</li>\n</ul><h4 class=\"jobSectionHeader\"><b>AI-Powered Order Routing &amp; Optimization:</b></h4>\n<ul><li>Collaborate with the OMS product team to embed AI into the order routing engine &mdash; building models that optimise routing decisions based on inventory, SLAs, cost, carrier performance, and real-time signals.</li>\n<li>Develop rule-augmented ML models that work alongside deterministic business logic in the routing module.</li>\n<li>Monitor model performance in production and implement feedback loops for continuous improvement.</li>\n</ul><h4 class=\"jobSectionHeader\"><b>Data Engineering &amp; Feature Pipelines:</b></h4>\n<ul><li>Build and maintain data pipelines for structured and unstructured commerce data</li>\n<li>Work with data and platform teams to define feature stores, data schemas, and batch/streaming data flows for model training and inference.</li>\n<li>Ensure data quality, lineage, and reproducibility across ML experiments.</li>\n</ul><h4 class=\"jobSectionHeader\"><b>Collaboration &amp; Mentorship:</b></h4>\n<ul><li>Work closely with product managers, backend engineers, and business analysts to scope and deliver AI features aligned with OmnifiCX roadmap priorities.</li>\n<li>Mentor junior engineers on AI/ML best practices and promote a culture of data-driven decision making.</li>\n<li>Document AI system designs, model cards, and experiment outcomes for cross-functional transparency.</li>\n</ul><h3 class=\"jobSectionHeader\"><b>Experience and Skills:</b></h3>\n<h4 class=\"jobSectionHeader\"><b>Minimum:</b></h4>\n<ul><li>Experience: 4&ndash;8 years in AI/ML engineering, with at least 2 years delivering production ML systems.</li>\n<li>Machine Learning: Hands-on experience with supervised, unsupervised, and reinforcement learning. Proficiency in scikit-learn, XGBoost, LightGBM, and deep learning frameworks (PyTorch or TensorFlow).</li>\n<li>LLMs &amp; Generative AI: Practical experience integrating LLM APIs (OpenAI, Anthropic, Cohere, or open-source). Familiar with LangChain, LlamaIndex, prompt engineering, and RAG pipeline design.</li>\n<li>Programming: Strong Python skills. Proficiency in Pandas, NumPy, and ML experimentation tooling.</li>\n<li>Data Engineering: Experience building pipelines using Apache Spark, Airflow, or dbt. Comfortable with SQL and large structured datasets.</li>\n<li>Model Serving &amp; APIs: Experience deploying ML models as REST/gRPC microservices using FastAPI or Flask.</li>\n<li>MLOps: Experience with model monitoring, versioning, and CI/CD for ML pipelines.</li>\n<li>Cloud Platforms: Hands-on experience with AWS or GCP/Azure equivalents.</li>\n<li>Optimization Problems: Ability to frame business problems as optimization or ranking tasks.</li>\n<li>Collaboration Tools: Familiarity with Jira, Confluence, or similar tools.</li>\n</ul><h4 class=\"jobSectionHeader\"><b>Preferred:</b></h4>\n<ul><li>Certifications: AWS Certified Machine Learning &ndash; Specialty, Google Professional ML Engineer, or equivalent.</li>\n<li>Commerce / OMS Domain: Exposure to e-commerce, order management, supply chain, or logistics AI use cases.</li>\n<li>Vector Databases: Experience with Pinecone, Weaviate, Chroma, or pgvector.</li>\n<li>Agentic AI: Experience designing multi-step agentic workflows.</li>\n<li>Streaming Data: Exposure to Kafka or Kinesis.</li>\n</ul><h3 class=\"jobSectionHeader\"><b>Minimum Qualifications:</b></h3>\n<ul><li>B.Tech / B.E. or M.Tech in Computer Science, Data Science, Mathematics, or a related field.</li>\n<li>Strong analytical thinking.</li>\n<li>Excellent communication skills.</li>\n<li>Ability to thrive in a fast-paced environment.</li>\n<li>Demonstrated track record of taking ML projects from prototype to production.</li>\n</ul><h3 class=\"jobSectionHeader\"><b>What&rsquo;s in it for you?</b></h3>\n<ul><li>Work on high-impact AI problems.</li>\n<li>Career growth opportunities.</li>\n<li>Mentorship and coaching.</li>\n<li>Competitive benefits.</li>\n<li>Flexible work options.</li>\n</ul></div></div></div><div><div>Job Overview</div>\n<div><div><div>Work Experience</div>\n<div>4-8 Years</div>\n</div><div><div>Job Type</div>\n<div>Full Time</div>\n</div><div><div>Location</div>\n<div>Hyderabad, India</div>\n</div><div><div>Work Mode</div>\n<div>On-site</div>\n</div><div><div>Positions Open</div>\n<div>2</div>\n</div><div><div>Posted On</div>\n<div>June 5, 2026</div></div></div></div></div>",
+          "descriptionText": "Job Description:\n\nAs an AI Engineer at OmnifiCX, you will design, build, and deploy intelligent AI-driven capabilities that power our commerce platform. You will work at the intersection of machine learning, backend engineering, and product intelligence — delivering features like smart order routing, predictive analytics, conversational AI assistants, and automation pipelines. You will collaborate closely with product, engineering, and data teams to translate business problems into production-grade AI solutions.\n\nRoles & Responsibilities:\nAI/ML Model Development:\nDesign, train, and deploy machine learning models for commerce use cases such as order routing optimization, demand forecasting, fraud detection, and customer intent prediction.\nBuild and maintain end-to-end ML pipelines covering data ingestion, feature engineering, model training, evaluation, and serving.\nExperiment with state-of-the-art approaches including LLMs, transformers, and classical ML algorithms depending on the problem context.\nLLM & Generative AI Integration:\nIntegrate large language models (e.g., OpenAI GPT, Anthropic Claude, open-source models via Hugging Face) into OmnifiCX product workflows such as intelligent order assistants, auto-summarization, and natural language query interfaces.\nDesign prompt engineering strategies, RAG (Retrieval-Augmented Generation) pipelines, and agentic workflows for commerce-specific scenarios.\nEvaluate and benchmark LLM outputs for accuracy, latency, cost, and safety before production rollout.\nAI-Powered Order Routing & Optimization:\nCollaborate with the OMS product team to embed AI into the order routing engine — building models that optimise routing decisions based on inventory, SLAs, cost, carrier performance, and real-time signals.\nDevelop rule-augmented ML models that work alongside deterministic business logic in the routing module.\nMonitor model performance in production and implement feedback loops for continuous improvement.\nData Engineering & Feature Pipelines:\nBuild and maintain data pipelines for structured and unstructured commerce data\nWork with data and platform teams to define feature stores, data schemas, and batch/streaming data flows for model training and inference.\nEnsure data quality, lineage, and reproducibility across ML experiments.\nCollaboration & Mentorship:\nWork closely with product managers, backend engineers, and business analysts to scope and deliver AI features aligned with OmnifiCX roadmap priorities.\nMentor junior engineers on AI/ML best practices and promote a culture of data-driven decision making.\nDocument AI system designs, model cards, and experiment outcomes for cross-functional transparency.\nExperience and Skills:\nMinimum:\nExperience: 4–8 years in AI/ML engineering, with at least 2 years delivering production ML systems.\nMachine Learning: Hands-on experience with supervised, unsupervised, and reinforcement learning. Proficiency in scikit-learn, XGBoost, LightGBM, and deep learning frameworks (PyTorch or TensorFlow).\nLLMs & Generative AI: Practical experience integrating LLM APIs (OpenAI, Anthropic, Cohere, or open-source). Familiar with LangChain, LlamaIndex, prompt engineering, and RAG pipeline design.\nProgramming: Strong Python skills. Proficiency in Pandas, NumPy, and ML experimentation tooling.\nData Engineering: Experience building pipelines using Apache Spark, Airflow, or dbt. Comfortable with SQL and large structured datasets.\nModel Serving & APIs: Experience deploying ML models as REST/gRPC microservices using FastAPI or Flask.\nMLOps: Experience with model monitoring, versioning, and CI/CD for ML pipelines.\nCloud Platforms: Hands-on experience with AWS or GCP/Azure equivalents.\nOptimization Problems: Ability to frame business problems as optimization or ranking tasks.\nCollaboration Tools: Familiarity with Jira, Confluence, or similar tools.\nPreferred:\nCertifications: AWS Certified Machine Learning – Specialty, Google Professional ML Engineer, or equivalent.\nCommerce / OMS Domain: Exposure to e-commerce, order management, supply chain, or logistics AI use cases.\nVector Databases: Experience with Pinecone, Weaviate, Chroma, or pgvector.\nAgentic AI: Experience designing multi-step agentic workflows.\nStreaming Data: Exposure to Kafka or Kinesis.\nMinimum Qualifications:\nB.Tech / B.E. or M.Tech in Computer Science, Data Science, Mathematics, or a related field.\nStrong analytical thinking.\nExcellent communication skills.\nAbility to thrive in a fast-paced environment.\nDemonstrated track record of taking ML projects from prototype to production.\nWhat’s in it for you?\nWork on high-impact AI problems.\nCareer growth opportunities.\nMentorship and coaching.\nCompetitive benefits.\nFlexible work options.\nJob Overview\nWork Experience\n4-8 Years\nJob Type\nFull Time\nLocation\nHyderabad, India\nWork Mode\nOn-site\nPositions Open\n2\nPosted On\nJune 5, 2026",
+          "companyName": "Kensium",
+          "companyUrl": "https://in.indeed.com/cmp/Kensium",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Hyderabad, Telangana",
+            "formattedAddressShort": "Hyderabad, Telangana",
+            "latitude": 17.399197,
+            "longitude": 78.418335,
+            "streetAddress": null,
+            "fullAddress": "Hyderabad, Telangana"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 2.7,
+            "count": 3
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-06-05",
+          "expired": false,
+          "source": "Kensium",
+          "age": "6 days ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=70d169b4a48c4b06",
+          "applyUrl": "https://www.kensium.com/careers/engineer-ai",
+          "emails": [],
+          "companyAddresses": [],
+          "companyLinks": {
+            "facebook": null,
+            "instagram": null,
+            "twitter": null,
+            "customLinks": [],
+            "corporateWebsite": null
+          },
+          "companyCeo": {
+            "name": null,
+            "photoUrl": null,
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "1614e18c628a6b5c",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 3
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "<div><h2 class=\"jobSectionHeader\"><b>Key Responsibilities:</b></h2><br>\n<ul>\n<li>Key Responsibilities</li>\n<li>Support Troubleshooting Act as the first point of contact for technical queries regarding GenAI tools e</li>\n<li>g</li>\n<li>Cursor Gemini Enterprise Devin GitHub Copilot</li>\n<li>Diagnose and resolve issues related to IDE configuration plugin connectivity and enterprise authentication</li>\n<li>User Onboarding Enablement Assist in onboarding project teams to the GenAI ecosystem</li>\n<li>Provide hands on demonstrations and walkthroughs to help developers integrate these tools into their local development environments</li>\n<li>Best Practice Guidance Guide users on the effective use of Prompt Engineering within their IDEs to ensure high quality code generation that aligns with Infosys coding and security standards</li>\n<li>Documentation Knowledge Management Document frequently asked questions FAQs create How To guides and maintain a technical knowledge base to help users self serve common issues</li>\n<li>Solution Validation Assist senior consultants in testing new features or updates within GenAI tools to ensure they are fit for purpose before being rolled out to larger teams</li>\n<li>Feedback Integration Proactively collect user feedback on tool performance latency or feature gaps</li>\n<li>Collate this data to provide inputs for the solution roadmap and vendor discussions</li>\n<li>Deployment Assistance Support the rollout of tool licenses and updates ensuring all environment dependencies are met and that developers have the necessary access permissions</li>\n<li>Case Study Contribution Help in identifying successful use cases where GenAI tools significantly improved productivity and assist in documenting these as internal case studies or PoVs</li>\n<li>Required Skills</li>\n<li>Tool Proficiency Hands on experience or a strong technical understanding of GenAI powered IDEs and agents</li></ul><br>\n<h2 class=\"jobSectionHeader\"><b>\nPreferred Skills:</b></h2>\nTechnology-&gt;AI-Generative AI-&gt;Generative AI - Basic</div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/3da3b97b6f16b9eaf7b736ff548625f2",
+          "descriptionText": "Key Responsibilities:\n\nKey Responsibilities\nSupport Troubleshooting Act as the first point of contact for technical queries regarding GenAI tools e\ng\nCursor Gemini Enterprise Devin GitHub Copilot\nDiagnose and resolve issues related to IDE configuration plugin connectivity and enterprise authentication\nUser Onboarding Enablement Assist in onboarding project teams to the GenAI ecosystem\nProvide hands on demonstrations and walkthroughs to help developers integrate these tools into their local development environments\nBest Practice Guidance Guide users on the effective use of Prompt Engineering within their IDEs to ensure high quality code generation that aligns with Infosys coding and security standards\nDocumentation Knowledge Management Document frequently asked questions FAQs create How To guides and maintain a technical knowledge base to help users self serve common issues\nSolution Validation Assist senior consultants in testing new features or updates within GenAI tools to ensure they are fit for purpose before being rolled out to larger teams\nFeedback Integration Proactively collect user feedback on tool performance latency or feature gaps\nCollate this data to provide inputs for the solution roadmap and vendor discussions\nDeployment Assistance Support the rollout of tool licenses and updates ensuring all environment dependencies are met and that developers have the necessary access permissions\nCase Study Contribution Help in identifying successful use cases where GenAI tools significantly improved productivity and assist in documenting these as internal case studies or PoVs\nRequired Skills\nTool Proficiency Hands on experience or a strong technical understanding of GenAI powered IDEs and agents\n\nPreferred Skills:\nTechnology->AI-Generative AI->Generative AI - Basic",
+          "companyName": "Infosys",
+          "companyUrl": "https://in.indeed.com/cmp/Infosys",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/2a4c83d93f9e327cbabfdf9db58ba570",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Bengaluru, Karnataka",
+            "formattedAddressShort": "Bengaluru, Karnataka",
+            "latitude": 12.976711,
+            "longitude": 77.596596,
+            "streetAddress": null,
+            "fullAddress": "Bengaluru, Karnataka"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.8,
+            "count": 16779
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Git",
+            "GitHub",
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-06-01",
+          "expired": false,
+          "source": "Infosys",
+          "age": "10 days ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=1614e18c628a6b5c",
+          "applyUrl": "https://career.infosys.com/jobdesc?jobReferenceCode=INFSYS-INDEED1-246495&sourceId=4010",
+          "emails": [],
+          "companyAddresses": [
+            "Bengaluru"
+          ],
+          "companyNumEmployees": "10,000+",
+          "companyRevenue": "more than $10B (USD)",
+          "companyDescription": " Infosys is a global leader in next-generation digital services and consulting. \nOver 320,000 of our people work to amplify human potential and create the next \nopportunity for people, businesses and communities. We enable clients in 59 countries \nto navigate their digital transformation. With over four decades of experience in \nmanaging the systems and workings of global enterprises, we expertly steer clients, as \nthey navigate their digital transformation powered by cloud and AI. \nWe enable them with an AI-first core, empower the business with agile digital at scale \nand drive continuous improvement with always-on learning through the transfer \nof digital skills, expertise, and ideas from our innovation ecosystem. We are deeply \ncommitted to being a well-governed, environmentally sustainable organization where \ndiverse talent thrives in an inclusive workplace,\n\nVisit www.infosys.com to see how Infosys (NYSE : INFY) can help your enterprise navigate your next.\n",
+          "companyFounded": {
+            "year": 1981
+          },
+          "companyBriefDescription": "Infosys is a global leader in next-generation digital services and consulting. We enable clients in 59 countries to navigate their digital transformation.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/Infosys/",
+            "instagram": "https://www.instagram.com/infosys",
+            "twitter": "https://twitter.com/InfosysCareers",
+            "customLinks": [
+              {
+                "name": "LinkedIn",
+                "url": "https://www.linkedin.com/company/infosys/"
+              },
+              {
+                "name": "Infosys Careers",
+                "url": "https://www.infosys.com/careers/"
+              }
+            ],
+            "corporateWebsite": "https://www.infosys.com"
+          },
+          "companyCeo": {
+            "name": "Salil S. Parekh",
+            "photoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_ceophoto/512x512/b10427ff0e38e938adc42bf0283e7ec1",
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "392470e94bbc1467",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 0
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "<div></div><div><div><div><div><b>Location</b></div>\n<div>Bengaluru</div>\n</div><div><div><b>Job Function</b></div>\n<div>TECHNOLOGY</div>\n</div><div><div><b>Role</b></div>\n<div>Engineer</div>\n</div><div><div><b>Job Id</b></div>\n<div>412786</div>\n</div><div><div><b>Desired Skills</b></div>\n<div>Artificial Intelligence</div>\n</div></div><p>Desired Candidate Profile\n</p><div><div><b>Qualifications</b> : BACHELOR OF ENGINEERING</div></div></div><div></div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/13b693b4dcc055d2344351b4c9a148e9",
+          "descriptionText": "Location\nBengaluru\nJob Function\nTECHNOLOGY\nRole\nEngineer\nJob Id\n412786\nDesired Skills\nArtificial Intelligence\nDesired Candidate Profile\nQualifications : BACHELOR OF ENGINEERING",
+          "companyName": "Tata Consultancy Services (TCS)",
+          "companyUrl": "https://in.indeed.com/cmp/Tata-Consultancy-Services-(tcs)",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/f61be028065c208521d0fead2ac23d9a",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Bengaluru, Karnataka",
+            "formattedAddressShort": "Bengaluru, Karnataka",
+            "latitude": 12.976711,
+            "longitude": 77.596596,
+            "streetAddress": null,
+            "fullAddress": "Bengaluru, Karnataka"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.9,
+            "count": 23598
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Bachelor's degree",
+            "B.E.",
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-05-18",
+          "expired": false,
+          "source": "Tata Consultancy Services",
+          "age": "24 days ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=392470e94bbc1467",
+          "applyUrl": "https://ibegin.tcsapps.com/candidate/jobs/shared-job/NDEyNzg2Sg==",
+          "emails": [],
+          "companyIndustry": "CONSULTING_AND_BUSINESS_SERVICES",
+          "companyAddresses": [
+            "Tour Initiale - 1 Terasse Bellini, 92800 Puteaux"
+          ],
+          "companyNumEmployees": "10,000+",
+          "companyRevenue": "more than $10B (USD)",
+          "companyDescription": "We are a global IT services, consulting and business solutions leader partnering with the world’s leading businesses in their transformational journeys. We are ranked among the Top 3 brands in IT Services globally by brand value and the fastest growing brand of the decade. We also are a top employer globally; with a diverse talent base of over 488,649 associates (including https://www.tcs.com/subsidiaries ) representing 154 nationalities, across 46 countries. We are one of the largest employers of women with over 178,000 women employees.\r\n\r\nWhether it is innovation, continual learning, contextual knowledge or a purpose-led approach to transformation, there is much we have learnt in our journey to becoming one of the world’s largest IT consulting enterprises. We build for ourselves what we strive to build for you. That is the TCS Way.  \r\n",
+          "companyFounded": {
+            "year": 1968
+          },
+          "companyBriefDescription": "Tata Consultancy Services is an IT services, consulting, and business solutions organization that delivers real results to global business.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/TataConsultancyServices",
+            "instagram": "https://www.instagram.com/tcsglobal",
+            "twitter": "https://twitter.com/TCS",
+            "customLinks": [],
+            "corporateWebsite": "https://www.tcs.com/fr-fr"
+          },
+          "companyCeo": {
+            "name": "K. Krithivasan",
+            "photoUrl": null,
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "6873e9c690c8b0ad",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 9
+          },
+          "title": "Junior AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "<div><h2 class=\"jobSectionHeader\"><b>Job Description:</b></h2><br>\n<ul>\n<li>We are looking for a Python AI Engineer 2 3 yrs who can build and productionize AI GenAI solutions especially LLM powered applications such as RAG systems summarization classification and agentic workflows</li>\n<li>The role is engineering led strong Python coding API development deployment readiness and basic operational practices monitoring evaluation guardrails</li>\n<li>This is not an ML platform role</li></ul><br>\n<h2 class=\"jobSectionHeader\"><b>\nKey Responsibilities:</b></h2><br>\n<ul>\n<li>Key Responsibilities</li>\n<li>GenAI LLM Engineering</li>\n<li>Build LLM powered applications chatbots copilots summarization knowledge assistants using OpenAI Azure OpenAI Anthropic Gemini or open source LLMs</li>\n<li>Implement RAG pipelines data ingestion chunking embeddings vector search prompt assembly response generation</li>\n<li>Improve response quality using prompt engineering retrieval tuning hybrid search metadata filters and basic RAG evaluation practices</li>\n<li>ML Engineering non platform</li>\n<li>Develop and deploy ML components classification NLP forecasting using scikit learn PyTorch TensorFlow as needed</li>\n<li>Package AI LLM solutions into production grade services using FastAPI Flask</li>\n<li>Write clean reusable Python modules and follow engineering best practices testing logging code quality</li>\n<li>Deployment Operations LLMOps exposure</li>\n<li>Support deployment to cloud environments AWS SageMaker ECS Lambda or Azure Azure ML AKS App Services</li>\n<li>Implement basic observability logs error handling latency tracking token usage tracking where applicable</li>\n<li>Assist in quality safety and governance practices PII redaction content filtering prompt injection mitigation secure access controls</li></ul><br>\n<h2 class=\"jobSectionHeader\"><b>\nTechnical Requirements:</b></h2><br>\n<ul>\n<li>Python programming strong fundamentals OOP writing APIs debugging</li>\n<li>Hands on experience building GenAI LLM solutions RAG embeddings vector DB prompt engineering</li>\n<li>Experience with FastAPI or Flask building and serving APIs</li>\n<li>Understanding of LLM application lifecycle prompting evaluation versioning deployment basics</li>\n<li>Knowledge of at least one cloud platform AWS or Azure</li>\n<li>Basic understanding of Git code reviews and deployment workflows</li></ul><br>\n<h2 class=\"jobSectionHeader\"><b>\nAdditional Responsibilities:</b></h2><br>\n<ul>\n<li>Vector databases Pinecone Qdrant Chroma Weaviate FAISS</li>\n<li>Frameworks LangChain LangGraph LlamaIndex Semantic Kernel</li>\n<li>Evaluation tools RAGAS TruLens DeepEval prompt testing frameworks</li>\n<li>Containerization Docker Kubernetes is optional</li>\n<li>CI CD exposure GitHub Actions Azure DevOps Jenkins</li>\n<li>Data pipelines Airflow Prefect Databricks</li>\n<li>Safety tooling Presidio content safety filters access control patterns</li></ul><br>\n<h2 class=\"jobSectionHeader\"><b>\nPreferred Skills:</b></h2>\nTechnology-&gt;Artificial Intelligence-&gt;Artificial Intelligence - ALL,Technology-&gt;AI-Generative AI-&gt;Generative AI - Basic</div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/3da3b97b6f16b9eaf7b736ff548625f2",
+          "descriptionText": "Job Description:\n\nWe are looking for a Python AI Engineer 2 3 yrs who can build and productionize AI GenAI solutions especially LLM powered applications such as RAG systems summarization classification and agentic workflows\nThe role is engineering led strong Python coding API development deployment readiness and basic operational practices monitoring evaluation guardrails\nThis is not an ML platform role\n\nKey Responsibilities:\n\nKey Responsibilities\nGenAI LLM Engineering\nBuild LLM powered applications chatbots copilots summarization knowledge assistants using OpenAI Azure OpenAI Anthropic Gemini or open source LLMs\nImplement RAG pipelines data ingestion chunking embeddings vector search prompt assembly response generation\nImprove response quality using prompt engineering retrieval tuning hybrid search metadata filters and basic RAG evaluation practices\nML Engineering non platform\nDevelop and deploy ML components classification NLP forecasting using scikit learn PyTorch TensorFlow as needed\nPackage AI LLM solutions into production grade services using FastAPI Flask\nWrite clean reusable Python modules and follow engineering best practices testing logging code quality\nDeployment Operations LLMOps exposure\nSupport deployment to cloud environments AWS SageMaker ECS Lambda or Azure Azure ML AKS App Services\nImplement basic observability logs error handling latency tracking token usage tracking where applicable\nAssist in quality safety and governance practices PII redaction content filtering prompt injection mitigation secure access controls\n\nTechnical Requirements:\n\nPython programming strong fundamentals OOP writing APIs debugging\nHands on experience building GenAI LLM solutions RAG embeddings vector DB prompt engineering\nExperience with FastAPI or Flask building and serving APIs\nUnderstanding of LLM application lifecycle prompting evaluation versioning deployment basics\nKnowledge of at least one cloud platform AWS or Azure\nBasic understanding of Git code reviews and deployment workflows\n\nAdditional Responsibilities:\n\nVector databases Pinecone Qdrant Chroma Weaviate FAISS\nFrameworks LangChain LangGraph LlamaIndex Semantic Kernel\nEvaluation tools RAGAS TruLens DeepEval prompt testing frameworks\nContainerization Docker Kubernetes is optional\nCI CD exposure GitHub Actions Azure DevOps Jenkins\nData pipelines Airflow Prefect Databricks\nSafety tooling Presidio content safety filters access control patterns\n\nPreferred Skills:\nTechnology->Artificial Intelligence->Artificial Intelligence - ALL,Technology->AI-Generative AI->Generative AI - Basic",
+          "companyName": "Infosys",
+          "companyUrl": "https://in.indeed.com/cmp/Infosys",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/2a4c83d93f9e327cbabfdf9db58ba570",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Bengaluru, Karnataka",
+            "formattedAddressShort": "Bengaluru, Karnataka",
+            "latitude": 12.976711,
+            "longitude": 77.596596,
+            "streetAddress": null,
+            "fullAddress": "Bengaluru, Karnataka"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.8,
+            "count": 16779
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "TensorFlow",
+            "CI/CD",
+            "Microsoft Access",
+            "Azure",
+            "Law",
+            "Kubernetes",
+            "Software deployment",
+            "Git",
+            "Master's degree",
+            "OOP",
+            "OS Kernels",
+            "AWS",
+            "Docker",
+            "Continuous integration",
+            "Natural language processing",
+            "GitHub",
+            "APIs",
+            "Flask",
+            "AI",
+            "Jenkins",
+            "Python",
+            "Debugging"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-05-25",
+          "expired": false,
+          "source": "Infosys",
+          "age": "17 days ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=6873e9c690c8b0ad",
+          "applyUrl": "https://career.infosys.com/jobdesc?jobReferenceCode=INFSYS-INDEED1-246088&sourceId=4010",
+          "emails": [],
+          "companyAddresses": [
+            "Bengaluru"
+          ],
+          "companyNumEmployees": "10,000+",
+          "companyRevenue": "more than $10B (USD)",
+          "companyDescription": " Infosys is a global leader in next-generation digital services and consulting. \nOver 320,000 of our people work to amplify human potential and create the next \nopportunity for people, businesses and communities. We enable clients in 59 countries \nto navigate their digital transformation. With over four decades of experience in \nmanaging the systems and workings of global enterprises, we expertly steer clients, as \nthey navigate their digital transformation powered by cloud and AI. \nWe enable them with an AI-first core, empower the business with agile digital at scale \nand drive continuous improvement with always-on learning through the transfer \nof digital skills, expertise, and ideas from our innovation ecosystem. We are deeply \ncommitted to being a well-governed, environmentally sustainable organization where \ndiverse talent thrives in an inclusive workplace,\n\nVisit www.infosys.com to see how Infosys (NYSE : INFY) can help your enterprise navigate your next.\n",
+          "companyFounded": {
+            "year": 1981
+          },
+          "companyBriefDescription": "Infosys is a global leader in next-generation digital services and consulting. We enable clients in 59 countries to navigate their digital transformation.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/Infosys/",
+            "instagram": "https://www.instagram.com/infosys",
+            "twitter": "https://twitter.com/InfosysCareers",
+            "customLinks": [
+              {
+                "name": "LinkedIn",
+                "url": "https://www.linkedin.com/company/infosys/"
+              },
+              {
+                "name": "Infosys Careers",
+                "url": "https://www.infosys.com/careers/"
+              }
+            ],
+            "corporateWebsite": "https://www.infosys.com"
+          },
+          "companyCeo": {
+            "name": "Salil S. Parekh",
+            "photoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_ceophoto/512x512/b10427ff0e38e938adc42bf0283e7ec1",
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "68f135fb1940caa9",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 1
+          },
+          "title": "AI Engineer",
+          "jobType": [
+            "Full-time"
+          ],
+          "descriptionHtml": "<div><div><div>Engineering\n </div></div><div><div>Bangalore\n </div><div>Full-time\n </div><div>0-3 years\n</div></div><p>At Rayvector, we are looking for talented AI / ML / Computer Vision developers who can create cutting-edge ML solutions. This role requires a proactive attitude and good team ethic to unify a common vision.</p></div><p></p>\n<br><div><div><div><h2 class=\"jobSectionHeader\"><b>Why Work With Us?</b></h2>\n<p>We believe in creating an environment where our team can thrive and do their best work.</p>\n</div><div></div><div><div><h3 class=\"jobSectionHeader\"><b>Health &amp; Wellness</b></h3>\n<p>Comprehensive health insurance and wellness programs</p>\n</div><div></div><div><h3 class=\"jobSectionHeader\"><b>Flexible Work</b></h3>\n<p>Bangalore-first culture with flexible working hours</p>\n</div><div></div><div><h3 class=\"jobSectionHeader\"><b>Growth Opportunities</b></h3>\n<p>Continuous learning and career advancement programs</p>\n</div><div></div><div><h3 class=\"jobSectionHeader\"><b>Great Perks</b></h3>\n<p>Free meals, gym membership, and team events</p></div></div></div></div>",
+          "descriptionText": "Engineering\n Bangalore\n Full-time\n 0-3 years\n\nAt Rayvector, we are looking for talented AI / ML / Computer Vision developers who can create cutting-edge ML solutions. This role requires a proactive attitude and good team ethic to unify a common vision.\nWhy Work With Us?\n\nWe believe in creating an environment where our team can thrive and do their best work.\n\nHealth & Wellness\n\nComprehensive health insurance and wellness programs\n\nFlexible Work\n\nBangalore-first culture with flexible working hours\n\nGrowth Opportunities\n\nContinuous learning and career advancement programs\n\nGreat Perks\n\nFree meals, gym membership, and team events",
+          "companyName": "Rayvector",
+          "companyUrl": "https://in.indeed.com/cmp/Rayvector",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Bengaluru, Karnataka",
+            "formattedAddressShort": "Bengaluru, Karnataka",
+            "latitude": 12.976711,
+            "longitude": 77.596596,
+            "streetAddress": null,
+            "fullAddress": "Bengaluru, Karnataka"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 0,
+            "count": 0
+          },
+          "benefits": [
+            "Health insurance",
+            "Flexible schedule"
+          ],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Image processing",
+            "Full-time",
+            "Health insurance",
+            "AI",
+            "Flexible schedule"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [
+            "Health insurance"
+          ],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-05-15",
+          "expired": false,
+          "source": "Rayvector",
+          "age": "a month ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=68f135fb1940caa9",
+          "applyUrl": "https://rayvector.com/career/join-us/",
+          "emails": [],
+          "companyAddresses": [],
+          "companyLinks": {
+            "facebook": null,
+            "instagram": null,
+            "twitter": null,
+            "customLinks": [],
+            "corporateWebsite": null
+          },
+          "companyCeo": {
+            "name": null,
+            "photoUrl": null,
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "b36ab67a6134bfc0",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 7
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "<div><p>We are on the hunt for AI/ML Engineer who harbors a deep-seated passion for artificial intelligence. Do you love solving problems with a unique blend of creative flair and meticulous attention to detail? You'll be a critical contributor in the creation of cutting-edge AI models, hone their performance to perfection, and masterfully translate complex theoretical constructs into robust, production-caliber innovations.\n</p><p>Key Responsibilities:\n</p><ul><li>Help craft, refine, troubleshoot, and launch sophisticated predictive models, deep learning algorithms, and machine learning frameworks.\n</li></ul><ul><li>Unravel the intricate web of ML algorithms, their structures, features, and any pesky bugs, identifying root causes and design intelligent solutions.\n</li></ul><ul><li>Delve into the depths of data to distill root issues, craft detailed reports, and detect recurring problem patterns through sharp analysis.\n</li></ul><ul><li>Design and develop a large language model (LLM) use case, ensuring it is equipped with adequate guardrails and leverages advanced LLM Operation techniques to guarantee a high-quality output upon productionization.\n</li></ul><ul><li>Train and retrain systems as needed, incorporating adaptability and foresight into the continuous improvement process.\n</li></ul><ul><li>Conduct thorough literature reviews, staying at the forefront of the latest developments in the specified research areas.\n</li></ul><ul><li>Analyze and interpret research findings and use the learnings to design and build AI models and algorithms.\n</li></ul><ul><li>Engage proactively in regular team meetings to share progress, address challenges, and brainstorm potential improvements.<br>\n</li></ul><p></p><p>#LI-GV1</p></div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/f27d801160ad2941c8d8e38218c16462",
+          "descriptionText": "We are on the hunt for AI/ML Engineer who harbors a deep-seated passion for artificial intelligence. Do you love solving problems with a unique blend of creative flair and meticulous attention to detail? You'll be a critical contributor in the creation of cutting-edge AI models, hone their performance to perfection, and masterfully translate complex theoretical constructs into robust, production-caliber innovations.\n\nKey Responsibilities:\n\n• Help craft, refine, troubleshoot, and launch sophisticated predictive models, deep learning algorithms, and machine learning frameworks.\n\n• Unravel the intricate web of ML algorithms, their structures, features, and any pesky bugs, identifying root causes and design intelligent solutions.\n\n• Delve into the depths of data to distill root issues, craft detailed reports, and detect recurring problem patterns through sharp analysis.\n\n• Design and develop a large language model (LLM) use case, ensuring it is equipped with adequate guardrails and leverages advanced LLM Operation techniques to guarantee a high-quality output upon productionization.\n\n• Train and retrain systems as needed, incorporating adaptability and foresight into the continuous improvement process.\n\n• Conduct thorough literature reviews, staying at the forefront of the latest developments in the specified research areas.\n\n• Analyze and interpret research findings and use the learnings to design and build AI models and algorithms.\n\n• Engage proactively in regular team meetings to share progress, address challenges, and brainstorm potential improvements.\n\n#LI-GV1",
+          "companyName": "Litmus7 System Consulting",
+          "companyUrl": "https://in.indeed.com/cmp/Litmus7-System-Consulting",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/4b548d04b559e1f384ead65603d2c28c",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Kochi, Kerala",
+            "formattedAddressShort": "Kochi, Kerala",
+            "latitude": 9.931232,
+            "longitude": 76.2673,
+            "streetAddress": null,
+            "fullAddress": "Kochi, Kerala"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 4.8,
+            "count": 4
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Law",
+            "Master's degree",
+            "Machine learning",
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-02-28",
+          "expired": false,
+          "source": "Litmus7",
+          "age": "3 months ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=b36ab67a6134bfc0",
+          "applyUrl": "https://www.litmus7.com/Career",
+          "emails": [],
+          "companyIndustry": "RETAIL",
+          "companyAddresses": [
+            "#208 and 209, Second floor SCK 01, Smartcity SEZ Kakkanadu P.O, Kochi, Kerala 682030"
+          ],
+          "companyNumEmployees": "201 to 500",
+          "companyRevenue": "less than $1M (USD)",
+          "companyDescription": "Litmus7 is a reputed IT solutions company that is 100% focused on retail, driven by 250 plus committed employees.\r\nAt Litmus7, we strive to create a platform to begin your entrepreneurial journey. Litmus7 is an organization that is unconventional at all times. Here, role progression is purely self-driven and based on milestones. This means that you can design your own career growth and set the pace at which you want to reach the top. We reward and care for our people better than any others in the industry. And most importantly, we welcome you with a “way of life” and not “structures”.\r\nMission: \"TO LIVE IN THE HEART OF EVERY RETAILER WORLDWIDE\r\nBY IMPLEMENTING IDEAS THAT TRANSFORMS THE LIVES OF RETAILERS AND THEIR CUSTOMERS\"",
+          "companyFounded": {
+            "year": 2009
+          },
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/litmus7",
+            "instagram": null,
+            "twitter": "https://twitter.com/litmus7inc",
+            "customLinks": [],
+            "corporateWebsite": "https://litmus7.com/"
+          },
+          "companyCeo": {
+            "name": "Venu Gopalakrishnan",
+            "photoUrl": null,
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "3fe6f10f04e60d3e",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 4
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "At InfoBeans, we believe in making other people&rsquo;s lives better&mdash; through our work and everyday interactions.",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/fc54f5dde4c52c34ca24d55d274725d5",
+          "descriptionText": "At InfoBeans, we believe in making other people’s lives better— through our work and everyday interactions.",
+          "companyName": "InfoBeans",
+          "companyUrl": "https://in.indeed.com/cmp/Infobeans",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/74e6335888fd7d2b3e76f0a83773428a",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Viman Nagar, Pune, Maharashtra",
+            "formattedAddressShort": "Viman Nagar, Pune, Maharashtra",
+            "latitude": 18.567928,
+            "longitude": 73.914314,
+            "streetAddress": null,
+            "fullAddress": "Viman Nagar, Pune, Maharashtra"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.7,
+            "count": 48
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-05-15",
+          "expired": false,
+          "source": "InfoBeans",
+          "age": "a month ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=3fe6f10f04e60d3e",
+          "applyUrl": "https://www.infobeans.com/current-openings/#",
+          "emails": [],
+          "companyAddresses": [
+            "2nd Floor, Crystal IT Park, Bhawarkua Main Rd, Indrapuri Colony, Indore, Madhya Pradesh 452014"
+          ],
+          "companyNumEmployees": "501 to 1,000",
+          "companyRevenue": "$5M to $25M (USD)",
+          "companyDescription": "Whether you want to stay at the forefront of innovation, or simply solve a challenging problem for your enterprise,  we have the right temperament and the skill sets to help you achieve your business goals through technology.\r\n\r\nOur clients, many among the world’s largest, are a testimony to the focus that InfoBeans brings in making them successful in their endeavour to widen revenue streams, achieve cost efficiency and enhance customers’ experience. \r\n\r\nOur highly passionate team members across our state-of-the-art offices in the USA, Germany, UAE and India are differentiated by the passion to deliver outcomes for all our global clients in their Digital Transformation and Product Engineering journeys. \r\n\r\nOur values are simple and the foundation of our culture stands on four pillars - Excellence, Ownership, Compassion, and Openness. Be it managing team expectations or managing customer experience; every process is led by our cultural pillars that are at the core of each aspect of the business. \r\n\r\nFun is in our DNA - we are a team of passionate leaders who celebrate the diversity that fuels our creativity and innovation. Our team members enjoy an open culture, flat hierarchy, and are happy to be working in an environment of trust and care for one another. \r\n\r\nWe are proud to have been awarded \"Great Place to Work\" and \"Dream Companies to Work For\" multiple times. We are consistently ranked amongst the top 50 IT/ITES mid-tier firms in India and have been recognized as the best under various categories in numerous government and private forums.\r\n\r\nInfoBeans is listed on the National Stock Exchange in India. In its 21st year of growth, InfoBeans is built on a solid foundation of people, finances, and processes with an intense focus on Creative WOW in everything we do. InfoBeans' founders have consistently practiced fiscal prudence to make it a financially robust organization.\r\n\r\nReach out to us via email, phone, or social media to know more about how we can give wings to your ambitions of a truly digital enterprise. \r\n\r\n ",
+          "companyFounded": {
+            "year": 2000
+          },
+          "companyBriefDescription": "InfoBeans, founded in 2000 and now 900+ strong, is a publicly listed Digital Transformation and Product Engineering outfit.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/InfoBeans",
+            "instagram": null,
+            "twitter": "https://twitter.com/infobeans",
+            "customLinks": [
+              {
+                "name": "LinkedIn",
+                "url": "https://www.linkedin.com/company/infobeans/"
+              },
+              {
+                "name": "Instagram",
+                "url": "https://www.instagram.com/infobeans/"
+              },
+              {
+                "name": "Careers Page",
+                "url": "https://www.infobeans.com/careers"
+              }
+            ],
+            "corporateWebsite": "https://www.infobeans.com/"
+          },
+          "companyCeo": {
+            "name": "Siddharth Sethi",
+            "photoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_ceophoto/512x512/bf60acae57204be5195d34c5e5386769",
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "bd49e909bb44cd73",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 2
+          },
+          "title": "AI Engineer",
+          "jobType": [],
+          "descriptionHtml": "As an AI Engineer at Zensar Technologies, you will be at the forefront of our AI initiatives. Your primary focus will be on designing and developing AI models and applications, utilizing your expertise in various AI technologies. You will collaborate with a dynamic team of engineers and data scientists to create innovative solutions that drive our business forward. This role offers an exciting opportunity to work with cutting-edge technologies and make a significant impact on our AI-driven projects.",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/fce27db113b74a57f14b757da1e2f3b6",
+          "descriptionText": "As an AI Engineer at Zensar Technologies, you will be at the forefront of our AI initiatives. Your primary focus will be on designing and developing AI models and applications, utilizing your expertise in various AI technologies. You will collaborate with a dynamic team of engineers and data scientists to create innovative solutions that drive our business forward. This role offers an exciting opportunity to work with cutting-edge technologies and make a significant impact on our AI-driven projects.",
+          "companyName": "Zensar Technologies",
+          "companyUrl": "https://in.indeed.com/cmp/Zensar-Technologies",
+          "companyHeaderUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_headerimage/1960x400/a9e8544469d2544c18864f28101dc5ed",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Pune, Maharashtra",
+            "formattedAddressShort": "Pune, Maharashtra",
+            "latitude": 18.518744,
+            "longitude": 73.86022,
+            "streetAddress": null,
+            "fullAddress": "Pune, Maharashtra"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.8,
+            "count": 739
+          },
+          "benefits": [],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-03-06",
+          "expired": false,
+          "source": "Zensar Technologies",
+          "age": "3 months ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=bd49e909bb44cd73",
+          "applyUrl": "https://fa-etvl-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/requisitions/preview/141568",
+          "emails": [],
+          "companyAddresses": [
+            "Pune"
+          ],
+          "companyNumEmployees": "5,001 to 10,000",
+          "companyRevenue": "$500M to $1B (USD)",
+          "companyDescription": "We are a technology consulting & services company. More than 145+ high-growth global enterprise depend on our expertise to be more disruptive, agile, and competitive. We conceptualize, design, engineer, market, and manage digital products and experiences for clients looking to disrupt through innovation and velocity. \r\n\r\nWith headquarters in Pune, India. our 10,500+ employees work across 30+ locations, including Seattle, Princeton, Cape Town, London, Singapore, and Mexico, to deliver feature rich, digital solutions to our clients.",
+          "companyFounded": {
+            "year": 2001
+          },
+          "companyBriefDescription": "Zensar is a digital solutions and technology services company that partners with global organizations across industries to achieve digital transformation.",
+          "companyLinks": {
+            "facebook": "https://www.facebook.com/Zensar",
+            "instagram": "https://www.instagram.com/zensar.technologies",
+            "twitter": "https://twitter.com/zensar",
+            "customLinks": [],
+            "corporateWebsite": "http://www.zensar.com"
+          },
+          "companyCeo": {
+            "name": "Manish Tandon",
+            "photoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_ceophoto/512x512/71bc258ef78ce1be8ff6f927353fcd0d",
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      },
+      {
+        "json": {
+          "jobKey": "1e378b3b32d4d722",
+          "scrapingInfo": {
+            "page": 1,
+            "index": 10
+          },
+          "title": "AI/ML Engineer",
+          "jobType": [
+            "Full-time"
+          ],
+          "descriptionHtml": "<div><div><h2 class=\"jobSectionHeader\"><b>Why Join Commdel?</b></h2><p>\nWe're committed to creating an environment where talent thrives and innovation flourishes</p></div><div><div><div><p>\nCompetitive compensation packages</p></div></div><div><div><p>\nComprehensive health insurance</p></div></div><div><div><p>\nFlexible work arrangements</p></div></div><div><div><p>\nProfessional development programs</p></div></div><div><div><p>\nModern office facilities</p></div></div><div><div><p>\nTeam building activities</p></div></div><div><div><p>\nPerformance-based bonuses</p></div></div><div><div><p>\nWork-life balance initiatives</p></div></div></div></div>\n<br><div><div><h3 class=\"jobSectionHeader\"><b>AI/ML Engineer</b></h3><p>\nBuild and deploy machine learning models for intelligent automation and predictive analytics.</p><div><div>\nData Science</div><div>\nNoida / Hybrid</div><div>\nFull-time</div></div></div><div><div>\n3+ years</div></div></div>\n<br><div><div><h2 class=\"jobSectionHeader\"><b>Our Recruitment Process</b></h2><p>\nSimple, transparent, and designed to find the perfect fit</p></div><div><div><div><div>\n01</div><h3 class=\"jobSectionHeader\"><b>\nApply</b></h3><p>\nSubmit your application online</p></div><div><div>\n02</div><h3 class=\"jobSectionHeader\"><b>\nScreen</b></h3><p>\nInitial screening call</p></div><div><div>\n03</div><h3 class=\"jobSectionHeader\"><b>\nInterview</b></h3><p>\nTechnical and cultural fit assessment</p></div><div><div>\n04</div><h3 class=\"jobSectionHeader\"><b>\nOffer</b></h3><p>\nJoin the team!</p></div></div></div></div>",
+          "companyLogoUrl": "https://d2q79iu7y748jz.cloudfront.net/s/_squarelogo/256x256/148f237a7a5393a5a1f71a1053dd932d",
+          "descriptionText": "Why Join Commdel?\n\nWe're committed to creating an environment where talent thrives and innovation flourishes\n\nCompetitive compensation packages\n\nComprehensive health insurance\n\nFlexible work arrangements\n\nProfessional development programs\n\nModern office facilities\n\nTeam building activities\n\nPerformance-based bonuses\n\nWork-life balance initiatives\nAI/ML Engineer\n\nBuild and deploy machine learning models for intelligent automation and predictive analytics.\n\nData Science\nNoida / Hybrid\nFull-time\n3+ years\nOur Recruitment Process\n\nSimple, transparent, and designed to find the perfect fit\n\n01\nApply\n\nSubmit your application online\n\n02\nScreen\n\nInitial screening call\n\n03\nInterview\n\nTechnical and cultural fit assessment\n\n04\nOffer\n\nJoin the team!",
+          "companyName": "Commdel Consulting Services Pvt. Ltd",
+          "companyUrl": "https://in.indeed.com/cmp/Commdel-Consulting-Services-Pvt.-Ltd",
+          "location": {
+            "city": null,
+            "postalCode": null,
+            "country": "India",
+            "countryCode": "IN",
+            "formattedAddressLong": "Noida, Uttar Pradesh",
+            "formattedAddressShort": "Noida, Uttar Pradesh",
+            "latitude": 28.535517,
+            "longitude": 77.39103,
+            "streetAddress": null,
+            "fullAddress": "Noida, Uttar Pradesh"
+          },
+          "salary": {},
+          "rating": {
+            "rating": 3.7,
+            "count": 7
+          },
+          "benefits": [
+            "Health insurance"
+          ],
+          "occupation": [
+            "Data & Database Occupations",
+            "Technology Occupations",
+            "Data Scientists & Statisticians"
+          ],
+          "attributes": [
+            "Performance bonus",
+            "Full-time",
+            "Health insurance",
+            "Machine learning",
+            "Recruiting",
+            "Data science",
+            "AI"
+          ],
+          "contacts": [],
+          "shifts": [],
+          "socialInsurance": [
+            "Health insurance"
+          ],
+          "workingSystem": [],
+          "shiftAndSchedule": [],
+          "postedToday": false,
+          "hiringDemand": {
+            "isHighVolumeHiring": false,
+            "isUrgentHire": false
+          },
+          "datePublished": "2026-03-31",
+          "expired": false,
+          "source": "commdel",
+          "age": "2 months ago",
+          "isRemote": false,
+          "locale": "in",
+          "language": "en",
+          "jobUrl": "https://in.indeed.com/viewjob?jk=1e378b3b32d4d722",
+          "applyUrl": "https://commdel.com/careers#",
+          "emails": [],
+          "companyAddresses": [],
+          "companyDescription": "Commdel is a global professional services company providing enhanced value to its clients using latest technology. We have an integrated approach to IT where in we combine Business, Process, Technology, Development, and Implementation & Support. We help our clients achieve their business objectives and enhance their competitive advantage over their competitors. We deliver the full range of services from Ideation, Product Roadmap, Product development and Systems Integration & Program Management Services. We have built in & customizable solutions frameworks that can help produce superior quality products in time with higher savings in the field of Payments, Mobility & Enterprise.",
+          "companyLinks": {
+            "facebook": null,
+            "instagram": null,
+            "twitter": null,
+            "customLinks": [],
+            "corporateWebsite": "https://www.commdel.com/"
+          },
+          "companyCeo": {
+            "name": null,
+            "photoUrl": null,
+            "startDate": null
+          },
+          "requirements": []
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Job Listing Scraper": [
+      {
+        "json": {
+          "id": "aurV5kxAlcVDxqVpO",
+          "actId": "MXLpngmVpE8WTESQr",
+          "userId": "byqHb36PwHsarMNtX",
+          "startedAt": "2026-06-11T11:48:15.117Z",
+          "finishedAt": "2026-06-11T11:48:35.163Z",
+          "status": "SUCCEEDED",
+          "meta": {
+            "origin": "API",
+            "userAgent": "n8n"
+          },
+          "stats": {
+            "inputBodyLen": 102,
+            "migrationCount": 0,
+            "rebootCount": 0,
+            "restartCount": 0,
+            "durationMillis": 19879,
+            "resurrectCount": 0,
+            "runTimeSecs": 19.879,
+            "metamorph": 0,
+            "computeUnits": 0.0027609722222222224,
+            "memAvgBytes": 55876361.357647695,
+            "memMaxBytes": 58044416,
+            "memCurrentBytes": 0,
+            "cpuAvgUsage": 0.33256399376779405,
+            "cpuMaxUsage": 42.5762962962963,
+            "cpuCurrentUsage": 0,
+            "netRxBytes": 106674,
+            "netTxBytes": 45019
+          },
+          "options": {
+            "build": "0.0.170",
+            "timeoutSecs": 3600,
+            "memoryMbytes": 512,
+            "maxItems": 1000,
+            "maxTotalChargeUsd": 5,
+            "isMaxTotalChargeUsdSetByUser": false,
+            "diskMbytes": 2048
+          },
+          "buildId": "kdKYKaNNLDO8l0gNg",
+          "exitCode": 0,
+          "defaultKeyValueStoreId": "exqK4XH7uGthWTr0n",
+          "defaultDatasetId": "JBQmtK6CrA4W5X5SU",
+          "defaultRequestQueueId": "VkFPBhzb9yHdwbxuT",
+          "storageIds": {
+            "keyValueStores": {
+              "default": "exqK4XH7uGthWTr0n"
+            },
+            "datasets": {
+              "default": "JBQmtK6CrA4W5X5SU"
+            },
+            "requestQueues": {
+              "default": "VkFPBhzb9yHdwbxuT"
+            }
+          },
+          "pricingInfo": {
+            "pricingModel": "PAY_PER_EVENT",
+            "createdAt": "2026-02-26T08:01:12.129Z",
+            "startedAt": "2026-02-26T08:01:12.129Z",
+            "apifyMarginPercentage": 0.2,
+            "isPriceChangeNotificationSuppressed": true,
+            "reasonForChange": "Migration from Pay Per Result to Pay Per Event with apify-default-dataset-item event",
+            "forceContainsSignificantPriceChange": false,
+            "pricingPerEvent": {
+              "actorChargeEvents": {
+                "apify-default-dataset-item": {
+                  "eventTitle": "job",
+                  "eventDescription": "Single job in the default dataset.",
+                  "isPrimaryEvent": true,
+                  "eventPriceUsd": 0.005
+                }
+              }
+            }
+          },
+          "chargedEventCounts": {
+            "apify-default-dataset-item": 10
+          },
+          "platformUsageBillingModel": "DEVELOPER",
+          "accountedChargedEventCounts": {
+            "apify-default-dataset-item": 0
+          },
+          "integrationTracking": {
+            "platform": "n8n",
+            "appId": null,
+            "isAiTool": false
+          },
+          "generalAccess": "FOLLOW_USER_SETTING",
+          "buildNumber": "0.0.170",
+          "containerUrl": "https://rzknigradk25.runs.apify.net",
+          "usageTotalUsd": 0,
+          "consoleUrl": "https://console.apify.com/view/runs/aurV5kxAlcVDxqVpO"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    " Fetch Skill Profile — Airtable": [
+      {
+        "json": {
+          "id": "recrm6gpl47geQPMH",
+          "createdTime": "2026-06-11T12:02:59.000Z",
+          "fields": {
+            "Level": "advanced",
+            "Category": "Programming Language",
+            "Source": "Work Experience",
+            "Last Updated": "2026-06-11",
+            "Skill Name": "Python"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Job Listing Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get dataset items": {
+      "main": [
+        [
+          {
+            "node": "Output parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent — Skill Extraction",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Compose Weekly Digest",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Listing Scraper": {
+      "main": [
+        [
+          {
+            "node": "Get dataset items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output parser": {
+      "main": [
+        [
+          {
+            "node": "AI Agent — Skill Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent — Skill Extraction": {
+      "main": [
+        [
+          {
+            "node": "AI Agent output parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent output parser": {
+      "main": [
+        [
+          {
+            "node": " Fetch Skill Profile — Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " Fetch Skill Profile — Airtable": {
+      "main": [
+        [
+          {
+            "node": "Gap Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gap Analysis": {
+      "main": [
+        [
+          {
+            "node": "Compose Weekly Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Weekly Digest": {
+      "main": [
+        [
+          {
+            "node": "Deliver Digest",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Deliver Digest1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "07b26fc1-2c27-40ac-a106-ffe18bba7892",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "4ooXPtQ1ww9gBvpK",
+  "tags": []
+}

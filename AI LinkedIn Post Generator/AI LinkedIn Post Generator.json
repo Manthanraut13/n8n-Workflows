@@ -1,0 +1,547 @@
+{
+  "name": "AI LinkedIn Post Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo",
+          "mode": "list",
+          "cachedResultName": "AI LinkedIn Post Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7f3573cb-6107-4fef-baf0-f08f654e04be",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "dgP9j24Jk0fX5lVf",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a LinkedIn post using the following context:\n\nContent Idea: {{ $json.idea }}\n\nTarget Audience: {{ $json.target_audience }}\n\nTone: {{ $json[' tone'] }}\n\nRequirements:\n\nLength: 150–300 words\n\nStructure:\n\n1. Hook (first sentence MUST capture attention)\n\n2. Insight, story, or lesson in the body\n\n3. Close with a conversation-starting question or CTA\n\nVoice: Conversational, relatable, professional, first-person\n\nFormatting:\n\nShort paragraphs\n\nNo hashtags\n\nMax 2 emojis\n\nGoal: Deliver value and drive comments\n\nReturn only the final LinkedIn post text, nothing else.",
+        "options": {
+          "systemMessage": "=You are a top-tier LinkedIn content strategist and copywriter known for:\n\nHigh-engagement writing\n\nStory-based insights\n\nProfessional yet relatable tone\n\nClear value delivery\n\nYour mission is to turn inputs into compelling LinkedIn posts that maximize:\n\nReader attention\n\nEmotional connection\n\nComment-driven engagement\n\nFollow these universal rules for every post you write:\n\nWrite in first person, sounding authentic and human\n\nOpen with a hook in the first line tailored to LinkedIn’s feed behavior\n\nKeep paragraphs short (1–3 lines each) for mobile readability\n\nNo buzzword stuffing — clarity > jargon\n\nAdd 1–2 relevant emojis max, only where they fit naturally\n\nDo NOT include hashtags — they will be added later\n\nNever reference instructions, variables, or explain your reasoning\n\nOutput only the post text, no titles, no commentary, no formatting blocks\n\nYour goal:\nTransform a simple content idea into a scroll-stopping post that educates, inspires, or sparks conversation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        336,
+        0
+      ],
+      "id": "654496ad-1d91-469a-b8fe-4348796fdd30",
+      "name": "AI Post Writer"
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        336,
+        176
+      ],
+      "id": "071da03c-46ea-4a4a-a10d-9963d6192b36",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        832,
+        192
+      ],
+      "id": "753594ee-ccef-4f7d-9552-068baca37a5d",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "d72b5e3d-2e36-40e6-b761-99b68a928dfc",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1296,
+        -32
+      ],
+      "id": "358e6d5a-7298-4e55-ab47-6459b9eed434",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1728,
+        -48
+      ],
+      "id": "33844745-a5c6-4bce-a692-8017e61838a8",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8e69fad7-af0c-4ed5-9b01-fe97dda8f4d0",
+              "name": "idea",
+              "value": "={{ $json.Idea }}",
+              "type": "string"
+            },
+            {
+              "id": "fc51d4c2-5187-404e-a227-23557f1454d2",
+              "name": "target_audience",
+              "value": "={{ $json.Target_audience }}",
+              "type": "string"
+            },
+            {
+              "id": "8fc122b3-1101-4b1d-bcd4-4245b6318500",
+              "name": " tone",
+              "value": "={{ $json[' Tone'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        0
+      ],
+      "id": "559b7b6f-6540-4bbb-b9f4-1182a48215b8",
+      "name": "Set Variables"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate relevant hashtags for this LinkedIn post:\n\nPost Content: {{ $json.output }}\n\nOriginal Idea: {{ $json.idea }}\nTarget Audience: {{ $json.target_audience }}\n\nRequirements:\n\nProvide 5–8 hashtags\n\nSpace-separated\n\nMix broad + niche + industry-aligned tags\n\nProperly capitalized (ex: #ProductDesign > #productdesign)\n\nAvoid filler hashtags\n\nOutput only the hashtags, nothing else",
+        "options": {
+          "systemMessage": "=You are a LinkedIn hashtag optimization strategist with deep knowledge of:\n\nSearch discoverability\n\nEngagement psychology\n\nIndustry-specific keyword behavior\n\nYour mission is to generate hashtags that maximize reach + relevancy using the content context provided.\n\nFollow these rules for every response:\n\nProvide only hashtags, nothing else—no sentences, no explanation\n\nReturn a single line of hashtags, space-separated\n\nUse a strong mix of:\n\nBroad reach hashtags (high visibility, but not overly saturated)\n\nTopic-specific hashtags (directly tied to post theme)\n\nAudience-focused hashtags (role/industry/community)\n\nPick 5–8 hashtags total—never fewer, never more\n\nUse proper capitalization\n\nAvoid generic or banned terms (#followforfollow, #like)\n\nNever repeat hashtags across the set\n\nYour ultimate job:\nIncrease discoverability and put the post in front of the right people—not everyone.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        832,
+        -16
+      ],
+      "id": "1e75f6a9-1f71-4c3f-8dc7-ab271dfa62a3",
+      "name": "AI Hashtag Generator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d3a25e0-fd77-438a-92cc-47e6113d7ebc",
+              "name": "Hashtag",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        -16
+      ],
+      "id": "f37b2953-9894-4a62-b2c7-31912a007ae9",
+      "name": "Set Variables1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const post = $input.first().json.output;\n  const tags = $input.first().json.Hashtag;\n  const finalPost = `${post}\\n\\n${tags}`;\n  \n  return {\n    final_post: finalPost,\n    character_count: finalPost.length\n  };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -32
+      ],
+      "id": "14dc47d5-fd68-47f2-9241-2b79656380cb",
+      "name": "Parsed output"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo",
+          "mode": "list",
+          "cachedResultName": "AI LinkedIn Post Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 196543033,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14dOQC3gJ5lEABz3Y-mLRHzrkzxwjaaWthc3F5c4-Cbo/edit#gid=196543033"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Idea": "={{ $json.idea }}",
+            "Target_audience": "={{ $json.target_audience }}",
+            " Tone": "={{ $json[' tone'] }}",
+            "Generated Post": "={{ $json.final_post }}",
+            "Hashtags": "={{ $json.Hashtag }}",
+            "Status": "Generated",
+            "Character Count": "={{ $json.character_count }}"
+          },
+          "matchingColumns": [
+            "Idea"
+          ],
+          "schema": [
+            {
+              "id": "Idea",
+              "displayName": "Idea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Target_audience",
+              "displayName": "Target_audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " Tone",
+              "displayName": " Tone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Generated Post",
+              "displayName": "Generated Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Hashtags",
+              "displayName": "Hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Character Count",
+              "displayName": "Character Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1888,
+        -48
+      ],
+      "id": "14cffefb-72d6-4b85-aa4d-a834eb8cf745",
+      "name": "Update Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=✅ LinkedIn Post Generated!\n\n📝 Original Idea:{{ $json.Idea }}\n\n📊 Stats:\n- Characters:{{ $json['Character Count'] }}\n- Status: Ready to post\nPost :{{ $json['Generated Post'] }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2032,
+        -48
+      ],
+      "id": "b096fd58-37e8-4732-9df2-999994944325",
+      "name": "Notification",
+      "webhookId": "44800a2c-07ee-4050-b034-432ecdba59ae",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Post Writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Post Writer": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Hashtag Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "AI Hashtag Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Parsed output",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Variables": {
+      "main": [
+        [
+          {
+            "node": "AI Post Writer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AI Hashtag Generator": {
+      "main": [
+        [
+          {
+            "node": "Set Variables1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Variables1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsed output": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet": {
+      "main": [
+        [
+          {
+            "node": "Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notification": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cf4c1a20-05c6-4d25-8b50-0baaee776817",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "BksClLAfgdlHAVd9",
+  "tags": []
+}

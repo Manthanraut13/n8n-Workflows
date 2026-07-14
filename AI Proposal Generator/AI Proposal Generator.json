@@ -1,0 +1,912 @@
+{
+  "name": "AI Proposal Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"executive_summary\": \"2-3 paragraph overview highlighting the opportunity, proposed approach, and expected outcomes\",\n  \"problem_statement\": \"Detailed understanding of the client's challenge, pain points, and business context (3-4 paragraphs)\",\n  \"proposed_solution\": \"Comprehensive solution approach, methodology, and how it addresses the problem (4-5 paragraphs)\",\n  \"scope_of_work\": [\n    \"Specific work item 1 with details\",\n    \"Specific work item 2 with details\",\n    \"Specific work item 3 with details\",\n    \"... (minimum 5 items)\"\n  ],\n  \"deliverables\": [\n    \"Concrete deliverable 1 with description\",\n    \"Concrete deliverable 2 with description\",\n    \"... (minimum 4 deliverables)\"\n  ],\n  \"timeline\": \"Structured timeline with phases and milestones (can be text or array)\",\n  \"assumptions\": [\n    \"Key assumption 1\",\n    \"Key assumption 2\",\n    \"... (minimum 3 assumptions)\"\n  ],\n  \"out_of_scope\": [\n    \"Explicitly excluded item 1\",\n    \"Explicitly excluded item 2\",\n    \"... (minimum 3 items)\"\n  ],\n  \"next_steps\": \"Clear call-to-action paragraph with specific next steps for the client\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        208
+      ],
+      "id": "9f4f4449-bd5b-4e5b-a3f4-63f7af07d183",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        976,
+        208
+      ],
+      "id": "fad07f53-c3b3-4dd9-9b2c-423809d914b1",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "sBTDlOpUwYgBh6wB",
+          "name": "n8n-regular"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/generate-proposal",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "06448062-0f78-45df-99b5-b37787c7eb0e",
+      "name": "Webhook (Input Trigger)",
+      "webhookId": "7f687bb4-b82a-4dab-b3ce-587e44e6739f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "16c3d8d0-d063-488e-92ff-2c67bef1c38d",
+              "name": "client_name",
+              "value": "={{ $json.body.client_name }}",
+              "type": "string"
+            },
+            {
+              "id": "f2f0b264-c610-4708-8e7a-4d017434bf2b",
+              "name": "company_name",
+              "value": "={{ $json.body.company_name }}",
+              "type": "string"
+            },
+            {
+              "id": "6820538a-dd96-4ef3-8410-6ac3fe1e96f9",
+              "name": "project_description",
+              "value": "={{ $json.body.project_description }}",
+              "type": "string"
+            },
+            {
+              "id": "66ad3f93-d0e7-4a36-9faa-9589d9a3f573",
+              "name": "budget_range",
+              "value": "={{ $json.body.budget_range || \"To be discussed\"}}",
+              "type": "string"
+            },
+            {
+              "id": "f4acdb5d-06bd-4492-8d5f-0c3888e4a5d8",
+              "name": "timeline_expectations",
+              "value": "={{ $json.body.timeline_expectations || \"Flexible\"}}",
+              "type": "string"
+            },
+            {
+              "id": "afd6aee9-42c1-47b7-9bcc-e7110f98800b",
+              "name": "industry",
+              "value": "={{ $json.body.industry }}",
+              "type": "string"
+            },
+            {
+              "id": "fe2bd597-4974-4dcc-be2d-93f6abbba38d",
+              "name": "contact_email",
+              "value": "={{ $json.body.contact_email }}",
+              "type": "string"
+            },
+            {
+              "id": "2613c61d-83f8-45f4-aa30-a8389406f7ba",
+              "name": "proposal_id",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "68cf997a-e632-4d31-9cf0-14faf0fe0137",
+              "name": "created_date",
+              "value": "={{ $now.format('yyyy-MM-DD HH:mm:ss') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        0
+      ],
+      "id": "3d2ac6da-5993-4322-9ba0-2eee77e7223c",
+      "name": "Set (Normalize Input)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e08afaf8-bfe4-4856-bd0c-63bb2c5a465a",
+              "leftValue": "={{ $json.client_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "6402c590-2ea0-4e32-b73c-c548892f295c",
+              "leftValue": "={{ $json.company_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "dcbe7617-89cc-41a5-ad4b-5e457196fb64",
+              "leftValue": "={{ $json.project_description }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "59480704-3de5-4658-935b-d67e9d465b31",
+              "leftValue": "={{ $json.project_description.length }}",
+              "rightValue": 20,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        0
+      ],
+      "id": "836d0a91-d5d7-4f83-b6da-ba112f6593d7",
+      "name": "IF (Validation)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.all()[0].json;\n\n// Extract key indicators from project description\nconst description = input.project_description.toLowerCase();\n\n// Detect complexity level\nlet complexity = \"Medium\";\nif (description.includes(\"integration\") || description.includes(\"api\") || description.includes(\"custom\")) {\n  complexity = \"High\";\n} else if (description.includes(\"simple\") || description.includes(\"basic\")) {\n  complexity = \"Low\";\n}\n\n// Detect project type\nlet projectType = \"General Consulting\";\nif (description.includes(\"automation\") || description.includes(\"workflow\")) {\n  projectType = \"Automation Implementation\";\n} else if (description.includes(\"ai\") || description.includes(\"machine learning\")) {\n  projectType = \"AI/ML Solution\";\n} else if (description.includes(\"website\") || description.includes(\"web app\")) {\n  projectType = \"Web Development\";\n} else if (description.includes(\"integration\")) {\n  projectType = \"System Integration\";\n}\n\n// Estimate timeline based on complexity\nlet estimatedTimelineWeeks = 8;\nif (complexity === \"High\") estimatedTimelineWeeks = 12;\nif (complexity === \"Low\") estimatedTimelineWeeks = 4;\n\n// Industry-specific considerations\nconst industryKeywords = {\n  \"Healthcare\": [\"health\", \"medical\", \"patient\", \"clinic\", \"hospital\"],\n  \"Finance\": [\"finance\", \"banking\", \"payment\", \"transaction\", \"fintech\"],\n  \"E-commerce\": [\"ecommerce\", \"shop\", \"store\", \"retail\", \"marketplace\"],\n  \"Education\": [\"education\", \"learning\", \"course\", \"student\", \"university\"],\n  \"Real Estate\": [\"property\", \"real estate\", \"rental\", \"listing\"]\n};\n\nlet detectedIndustry = input.industry || \"General\";\nfor (const [industry, keywords] of Object.entries(industryKeywords)) {\n  if (keywords.some(keyword => description.includes(keyword))) {\n    detectedIndustry = industry;\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    ...input,\n    enriched_data: {\n      complexity: complexity,\n      project_type: projectType,\n      estimated_timeline_weeks: estimatedTimelineWeeks,\n      detected_industry: detectedIndustry,\n      urgency: input.timeline_expectations.toLowerCase().includes(\"urgent\") ? \"High\" : \"Normal\"\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -16
+      ],
+      "id": "17ae68ac-f9d4-476f-8930-ee70ddd28dde",
+      "name": "Function (Enrich Context)"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"ai_context\" : \"\n        Client: {{ $json.client_name }} from {{ $json.company_name }}\n        Industry: {{ $json.enriched_data.detected_industry }}\n\n        Project Type: {{ $json.enriched_data.project_type }}\n        Complexity: {{ $json.enriched_data.complexity }}\n        PROJECT REQUIREMENTS: {{ $json.project_description }}\n  \n        CONSTRAINTS:\n        Budget Range: {{ $json.budget_range }}\n        Timeline Expectations: {{ $json.timeline_expectations }}\n        Estimated Duration: {{ $json.enriched_data.estimated_timeline_weeks }} weeks\n\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        -16
+      ],
+      "id": "996bd22f-4664-44e7-a30a-375fc12d178e",
+      "name": "Set (Prepare AI Input)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert business proposal writer specializing in B2B consulting and automation services.\n\nGenerate a comprehensive, professional proposal based on the following client requirements. You MUST return your response as a valid JSON object ONLY, with no additional text before or after.\n\nCLIENT CONTEXT:\n{{ $json.ai_context }}\n\nREQUIRED JSON STRUCTURE:\n{\n  \"executive_summary\": \"2-3 paragraph overview highlighting the opportunity, proposed approach, and expected outcomes\",\n  \"problem_statement\": \"Detailed understanding of the client's challenge, pain points, and business context (3-4 paragraphs)\",\n  \"proposed_solution\": \"Comprehensive solution approach, methodology, and how it addresses the problem (4-5 paragraphs)\",\n  \"scope_of_work\": [\n    \"Specific work item 1 with details\",\n    \"Specific work item 2 with details\",\n    \"Specific work item 3 with details\",\n    \"... (minimum 5 items)\"\n  ],\n  \"deliverables\": [\n    \"Concrete deliverable 1 with description\",\n    \"Concrete deliverable 2 with description\",\n    \"... (minimum 4 deliverables)\"\n  ],\n  \"timeline\": \"Structured timeline with phases and milestones (can be text or array)\",\n  \"assumptions\": [\n    \"Key assumption 1\",\n    \"Key assumption 2\",\n    \"... (minimum 3 assumptions)\"\n  ],\n  \"out_of_scope\": [\n    \"Explicitly excluded item 1\",\n    \"Explicitly excluded item 2\",\n    \"... (minimum 3 items)\"\n  ],\n  \"next_steps\": \"Clear call-to-action paragraph with specific next steps for the client\"\n}\n\nWRITING GUIDELINES:\n- Use professional, consultative tone\n- Be specific but avoid overpromising\n- Use \"we will\" and \"our team\" language\n- Include measurable outcomes where possible\n- Keep timeline realistic based on complexity\n- Be clear about what IS and ISN'T included\n- Make assumptions explicit to manage expectations\n- End with clear, actionable next steps\n\nReturn ONLY the JSON object, nothing else.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        976,
+        -16
+      ],
+      "id": "eba73bea-84ee-4d3e-bd3b-ea21a67d0e50",
+      "name": "AI Agent (Generate Proposal)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nlet proposalData;\n\ntry {\n  // Get AI response\n  const aiResponse = items[0].json.output || items[0].json.text || items[0].json;\n  \n  // Parse JSON if it's a string\n  if (typeof aiResponse === 'string') {\n    // Remove markdown code blocks if present\n    const cleaned = aiResponse.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    proposalData = JSON.parse(cleaned);\n  } else {\n    proposalData = aiResponse;\n  }\n  \n  // Get original data from earlier node\n  const originalData = items[0].json;\n  \n  // Validate required fields\n  const requiredFields = ['executive_summary', 'problem_statement', 'proposed_solution', \n                          'scope_of_work', 'deliverables', 'timeline', \n                          'assumptions', 'out_of_scope', 'next_steps'];\n  \n  const missingFields = requiredFields.filter(field => !proposalData[field]);\n  \n  if (missingFields.length > 0) {\n    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n  }\n  \n  return [{\n    json: {\n      ...originalData,\n      proposal: proposalData,\n      status: \"success\",\n      parse_error: null\n    }\n  }];\n  \n} catch (error) {\n  // Return error state\n  return [{\n    json: {\n      ...items[0].json,\n      proposal: null,\n      status: \"parse_error\",\n      parse_error: error.message\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -16
+      ],
+      "id": "0a60568d-bfe5-48e0-a263-a42bbb5d8f47",
+      "name": "Function (Parse AI Response)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "59cfa769-f0bc-4945-b96c-3e47017f3327",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        -16
+      ],
+      "id": "f905cafc-c0a9-4704-829a-5647e9b982fc",
+      "name": "IF (Check Parse Success)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d39c1454-b9be-4323-9ec8-9e4d3d80af3b",
+              "name": "Proposal_Id",
+              "value": "={{ $('Set (Normalize Input)').item.json.proposal_id }}",
+              "type": "string"
+            },
+            {
+              "id": "930156f4-b10f-4bed-afd5-94bdd7d29f53",
+              "name": "Created_Date",
+              "value": "={{ $('Set (Normalize Input)').item.json.created_date }}",
+              "type": "string"
+            },
+            {
+              "id": "5e1125bc-41e1-4c6f-aae3-80b61262a93c",
+              "name": "Client_Name",
+              "value": "={{ $('Set (Normalize Input)').item.json.client_name }}",
+              "type": "string"
+            },
+            {
+              "id": "b4b31e2e-f76a-4a71-98e9-b90f5d2b25bc",
+              "name": "Company_Name",
+              "value": "={{ $('Set (Normalize Input)').item.json.company_name }}",
+              "type": "string"
+            },
+            {
+              "id": "56a2a17b-3534-4105-a39b-96ac1b9a0780",
+              "name": "Industry",
+              "value": "={{ $('Function (Enrich Context)').item.json.enriched_data.detected_industry }}",
+              "type": "string"
+            },
+            {
+              "id": "079dab69-3463-4b23-a968-690bed9c3d82",
+              "name": "Project_Type",
+              "value": "={{ $('Function (Enrich Context)').item.json.enriched_data.project_type }}",
+              "type": "string"
+            },
+            {
+              "id": "f2b75796-dfdb-4470-bcf1-ef113e38a2bf",
+              "name": "Complexity",
+              "value": "={{ $('Function (Enrich Context)').item.json.enriched_data.complexity }}",
+              "type": "string"
+            },
+            {
+              "id": "969882fe-d3ef-4f89-ac8c-c4aa805c9e0e",
+              "name": "Budget_Range",
+              "value": "={{ $('Function (Enrich Context)').item.json.budget_range }}",
+              "type": "string"
+            },
+            {
+              "id": "142c2e76-a991-4989-a7aa-2cb71eb383e9",
+              "name": "Timeline_Expectations",
+              "value": "={{ $('Function (Enrich Context)').item.json.timeline_expectations }}",
+              "type": "string"
+            },
+            {
+              "id": "a7aa255a-adb5-47ba-93c2-e2acc1e29b06",
+              "name": "Executive_Summary",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.executive_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "a67d2131-e97b-42a2-bd34-36e2239d88b7",
+              "name": "Problem_Statement",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.problem_statement }}",
+              "type": "string"
+            },
+            {
+              "id": "a843f2af-e9fe-4db7-93bd-af56c51ff4a2",
+              "name": "Proposed_Solution",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.proposed_solution }}",
+              "type": "string"
+            },
+            {
+              "id": "9b459229-9a69-4985-b671-815fdb88f09c",
+              "name": "Scope_of_Work",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.scope_of_work }}",
+              "type": "array"
+            },
+            {
+              "id": "64a13cb4-c214-46d7-bfe4-2fb6ce17d009",
+              "name": "Deliverables",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.deliverables }}",
+              "type": "array"
+            },
+            {
+              "id": "8b7d1399-d0f1-4dce-b8e8-e2403337e876",
+              "name": "Timeline",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.timeline }}",
+              "type": "string"
+            },
+            {
+              "id": "5e53de0f-bd39-448d-8244-63fd1590db11",
+              "name": "Assumptions",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.assumptions }}",
+              "type": "array"
+            },
+            {
+              "id": "dd3940cf-9a35-4cf7-b547-f54a79b50a39",
+              "name": "Out_of_Scope",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.out_of_scope }}",
+              "type": "array"
+            },
+            {
+              "id": "edf56545-c2f2-4e06-a8c2-6ee8d72abc81",
+              "name": "Next_Steps",
+              "value": "={{ $('Function (Parse AI Response)').item.json.output.next_steps }}",
+              "type": "string"
+            },
+            {
+              "id": "52db81b1-757b-4071-a7e0-e1781323e233",
+              "name": "Contact_Email",
+              "value": "={{ $('Set (Normalize Input)').item.json.contact_email }}",
+              "type": "string"
+            },
+            {
+              "id": "1fb85218-b3e6-47aa-b1f2-fe21f0313904",
+              "name": "Status",
+              "value": "=Generated",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1744,
+        -32
+      ],
+      "id": "4b81720d-aa5a-41d9-b7c3-3a4e60a6ae2d",
+      "name": "Set (Format for Sheets)"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1vCwn_2Q0koE3dTLmAzxTQp9G7Vl6lHuenyK3VgqzvLU",
+          "mode": "list",
+          "cachedResultName": "AI Proposal Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vCwn_2Q0koE3dTLmAzxTQp9G7Vl6lHuenyK3VgqzvLU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vCwn_2Q0koE3dTLmAzxTQp9G7Vl6lHuenyK3VgqzvLU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Proposal_ID": "={{ $json.Proposal_Id }}",
+            "Created_Date": "={{ $json.Created_Date }}",
+            "Client_Name": "={{ $json.Client_Name }}",
+            "Company_Name": "={{ $json.Company_Name }}",
+            "Industry": "={{ $json.Industry }}",
+            "Project_Type": "={{ $json.Project_Type }}",
+            "Complexity": "={{ $json.Complexity }}",
+            "Budget_Range": "={{ $json.Budget_Range }}",
+            "Timeline_Weeks": "={{ $json.Timeline_Expectations }}",
+            "Executive_Summary": "={{ $json.Executive_Summary }}",
+            "Problem_Statement": "={{ $json.Problem_Statement }}",
+            "Proposed_Solution": "={{ $json.Proposed_Solution }}",
+            "Scope_of_Work": "={{ $json.Scope_of_Work.join('\\n') }}",
+            "Deliverables": "={{ $json.Deliverables.join('\\n') }}",
+            "Timeline": "={{ $json.Timeline }}",
+            "Assumptions": "={{ $json.Assumptions.join('\\n') }}",
+            "Out_of_Scope": "={{ $json.Out_of_Scope.join('\\n') }}",
+            "Next_Steps": "={{ $json.Next_Steps }}",
+            "Contact_Email": "={{ $json.Contact_Email }}",
+            "Status": "={{ $json.Status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Proposal_ID",
+              "displayName": "Proposal_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Created_Date",
+              "displayName": "Created_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Client_Name",
+              "displayName": "Client_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company_Name",
+              "displayName": "Company_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Project_Type",
+              "displayName": "Project_Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Complexity",
+              "displayName": "Complexity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget_Range",
+              "displayName": "Budget_Range",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timeline_Weeks",
+              "displayName": "Timeline_Weeks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Executive_Summary",
+              "displayName": "Executive_Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Problem_Statement",
+              "displayName": "Problem_Statement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Proposed_Solution",
+              "displayName": "Proposed_Solution",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scope_of_Work",
+              "displayName": "Scope_of_Work",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deliverables",
+              "displayName": "Deliverables",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timeline",
+              "displayName": "Timeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Assumptions",
+              "displayName": "Assumptions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Out_of_Scope",
+              "displayName": "Out_of_Scope",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Next_Steps",
+              "displayName": "Next_Steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Contact_Email",
+              "displayName": "Contact_Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1936,
+        -32
+      ],
+      "id": "2e2bf0b2-595c-47a8-a7b8-b681d54d1f1a",
+      "name": "Google Sheets (Store Proposal)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=✅ *New Proposal Generated*\n\nClient:  {{ $json.Client_Name }}\nCompany: {{ $json.Company_Name }}\nProposal ID: {{ $json.Proposal_ID }}\n\nExecutive Summary:{{ $json.Executive_Summary }}\n\nProject Type: {{ $json.Project_Type }}\nComplexity: {{ $json.Complexity }}\n\n⏱️ Generated: {{ $json.Created_Date }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2112,
+        -32
+      ],
+      "id": "0ce892a8-e103-4e05-b1fe-3b6427eb6ee5",
+      "name": "Telegram (Send Notification)",
+      "webhookId": "1394222c-cdbc-4d6d-ad0a-53f23c73aa0a",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "09005e04-8313-4777-9369-159797e6554f",
+              "name": "error_type",
+              "value": "Validation Error or Parse Error",
+              "type": "string"
+            },
+            {
+              "id": "1a58beaf-f085-465b-bc16-f5a3ee2152aa",
+              "name": "error_details ",
+              "value": "Relevant error message",
+              "type": "string"
+            },
+            {
+              "id": "e1fea739-80d9-4939-82af-de05ce624edb",
+              "name": "client_name",
+              "value": "={{ $('Set (Normalize Input)').item.json.client_name }}",
+              "type": "string"
+            },
+            {
+              "id": "d953dd0e-3ba3-413b-b2b5-d6a77c071a83",
+              "name": "timestamp",
+              "value": "={{ $now}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        208
+      ],
+      "id": "1612d639-7eee-4e95-afc3-74aa15228007",
+      "name": "Set (Error Message)"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=✅ *New Proposal Generated*\n\nClient:  {{ $json.Client_Name }}\nCompany: {{ $json.Company_Name }}\nProposal ID: {{ $json.Proposal_ID }}\n\nExecutive Summary:{{ $json.Executive_Summary }}\n\nProject Type: {{ $json.Project_Type }}\nComplexity: {{ $json.Complexity }}\n\n⏱️ Generated: {{ $json.Created_Date }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        208
+      ],
+      "id": "679ca245-a3cd-46c2-b440-36369450d49b",
+      "name": "Telegram (Send Error Notification)",
+      "webhookId": "1394222c-cdbc-4d6d-ad0a-53f23c73aa0a",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent (Generate Proposal)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (Generate Proposal)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (Input Trigger)": {
+      "main": [
+        [
+          {
+            "node": "Set (Normalize Input)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Normalize Input)": {
+      "main": [
+        [
+          {
+            "node": "IF (Validation)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (Validation)": {
+      "main": [
+        [
+          {
+            "node": "Function (Enrich Context)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set (Error Message)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function (Enrich Context)": {
+      "main": [
+        [
+          {
+            "node": "Set (Prepare AI Input)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Prepare AI Input)": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (Generate Proposal)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (Generate Proposal)": {
+      "main": [
+        [
+          {
+            "node": "Function (Parse AI Response)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function (Parse AI Response)": {
+      "main": [
+        [
+          {
+            "node": "IF (Check Parse Success)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (Check Parse Success)": {
+      "main": [
+        [
+          {
+            "node": "Set (Format for Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Format for Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets (Store Proposal)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets (Store Proposal)": {
+      "main": [
+        [
+          {
+            "node": "Telegram (Send Notification)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Error Message)": {
+      "main": [
+        [
+          {
+            "node": "Telegram (Send Error Notification)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "d691551a-a000-4583-920c-019b86098691",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "lE8loeSthHTSY8sG",
+  "tags": []
+}

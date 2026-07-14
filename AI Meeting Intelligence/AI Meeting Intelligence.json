@@ -1,0 +1,395 @@
+{
+  "name": "AI Meeting Intelligence",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-transcript",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        320,
+        -560
+      ],
+      "id": "42b1396e-956b-42b8-b2d9-6f7e192f263d",
+      "name": "Webhook Receiver",
+      "webhookId": "5635f2d2-145a-487b-8c44-5a0ae19da6f6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nconst required = ['meeting_id', 'meeting_title', 'meeting_date', 'transcript', 'participants'];\n\nconst missing = required.filter(f => !body[f] || String(body[f]).trim() === '');\n\nif (missing.length > 0) {\n  throw new Error(`VALIDATION_ERROR: Missing required fields: ${missing.join(', ')}`);\n}\n\nif (!Array.isArray(body.participants) || body.participants.length === 0) {\n  throw new Error('VALIDATION_ERROR: participants must be a non-empty array');\n}\n\nif (body.transcript.length < 100) {\n  throw new Error('VALIDATION_ERROR: Transcript too short to process (min 100 chars)');\n}\n\n// Normalize participant emails\nconst normalizedParticipants = body.participants.map(p => ({\n  name: (p.name || '').trim(),\n  email: (p.email || '').toLowerCase().trim(),\n  role: p.role || 'attendee'\n})).filter(p => p.email.includes('@'));\n\n// Normalize date\nconst meetingDate = new Date(body.meeting_date);\nif (isNaN(meetingDate.getTime())) {\n  throw new Error('VALIDATION_ERROR: Invalid meeting_date format');\n}\n\nreturn [{\n  json: {\n    ...body,\n    meeting_id: body.meeting_id.toString().trim(),\n    meeting_title: body.meeting_title.trim(),\n    meeting_date: meetingDate.toISOString(),\n    participants: normalizedParticipants,\n    participant_emails: normalizedParticipants.map(p => p.email),\n    organizer_email: normalizedParticipants.find(p => p.role === 'organizer')?.email\n      || normalizedParticipants[0].email,\n    transcript: body.transcript.trim(),\n    platform: (body.platform || 'unknown').toLowerCase(),\n    duration_minutes: parseInt(body.duration_minutes) || 0,\n    validated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        -560
+      ],
+      "id": "b3d41053-8ded-4e7d-9fa6-0e1beab391ef",
+      "name": "Input Validator & Normalizer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nlet raw = data.transcript;\n\n// Remove platform-specific timestamp patterns\nraw = raw.replace(/\\[?\\d{1,2}:\\d{2}(:\\d{2})?\\]?/g, '');\n\n// Remove filler words and disfluencies\nraw = raw.replace(/\\b(um|uh|er|ah|like,|you know,)\\b/gi, '');\n\n// Collapse multiple whitespace/newlines\nraw = raw.replace(/[ \\t]+/g, ' ')\n         .replace(/\\n{3,}/g, '\\n\\n')\n         .trim();\n\n// Extract speaker turns for context\nconst speakerPattern = /^([A-Z][a-z]+ [A-Z][a-z]+):\\s*/m;\nconst speakers = [...new Set(\n  raw.match(/^([A-Z][a-z]+ [A-Z][a-z]+):/gm)\n     ?.map(s => s.replace(':', '').trim()) || []\n)];\n\n// Chunk if transcript exceeds 80k characters\nconst MAX_CHARS = 80000;\nlet chunks = [];\nif (raw.length > MAX_CHARS) {\n  for (let i = 0; i < raw.length; i += MAX_CHARS) {\n    chunks.push(raw.substring(i, i + MAX_CHARS));\n  }\n} else {\n  chunks = [raw];\n}\n\n// Word count for analytics\nconst wordCount = raw.split(/\\s+/).length;\n\nreturn [{\n  json: {\n    ...data,\n    transcript_cleaned: raw,\n    transcript_chunks: chunks,\n    chunk_count: chunks.length,\n    is_chunked: chunks.length > 1,\n    detected_speakers: speakers,\n    word_count: wordCount,\n    char_count: raw.length,\n    preprocessed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        -560
+      ],
+      "id": "889cbc6f-5f36-4371-a218-20d8fb9fb2a6",
+      "name": "Transcript Preprocessor"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst date = new Date(data.meeting_date);\n\nconst participantList = data.participants\n  .map(p => `${p.name} (${p.email})`)\n  .join('; ');\n\nconst runId = `run_${data.meeting_id}_${Date.now()}`;\n\nconst dateFormatted = date.toLocaleDateString('en-US', {\n  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'\n});\n\nreturn [{\n  json: {\n    ...data,\n    run_id: runId,\n    meeting_date_formatted: dateFormatted,\n    meeting_week: `${getISOWeek(date)}-${date.getFullYear()}`,\n    meeting_month: `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,\n    participant_list_formatted: participantList,\n    participant_count: data.participants.length,\n    notion_database_id: `{{$env.NOTION_MEETINGS_DB_ID}}`,\n    asana_project_id: `{{$env.ASANA_PROJECT_ID}}`,\n    slack_channel_id: `{{$env.SLACK_MEETINGS_CHANNEL}}`\n  }\n}];\n\nfunction getISOWeek(date) {\n  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));\n  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));\n  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));\n  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -560
+      ],
+      "id": "f190600c-58ed-4281-afed-2f84fad98b26",
+      "name": "Metadata Extractor"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Meeting Title: {{$json.meeting_title}}\nMeeting Date: {{$json.meeting_date_formatted}}\nDuration: {{$json.duration_minutes}} minutes\nPlatform: {{$json.platform}}\nParticipants: {{$json.participant_list_formatted}}\n\n---\nTRANSCRIPT:\n{{$json.transcript_cleaned}}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an expert meeting analyst and executive assistant with deep expertise in business communication, project management, and organizational decision-making.\n\nYour task is to analyze the provided meeting transcript and extract structured intelligence. You must respond with ONLY a valid JSON object — no preamble, no explanation, no markdown fences, no additional text of any kind. Any deviation from pure JSON output will break the downstream system.\n\nSTRICT RULES:\n1. Extract ONLY information explicitly stated in the transcript. Do NOT invent, infer, or hallucinate details.\n2. If a field has no corresponding content in the transcript, return an empty array [] or empty string \"\".\n3. For action items, identify the specific person named as responsible. If no person is named, use \"Team\" as the owner.\n4. For deadlines, preserve the exact phrasing from the transcript (e.g., \"by EOD Friday\", \"next sprint\", \"Q1 2025\"). Do not reformat unless it's a clear date.\n5. Distinguish between DECISIONS (things that were agreed upon / concluded) and ACTION ITEMS (tasks someone needs to do).\n6. Risks and blockers must be things explicitly flagged as problems, concerns, or dependencies — not general observations.\n\nOUTPUT SCHEMA — respond with exactly this JSON structure:\n{\n  \"meeting_summary\": \"string — 3-5 sentence executive summary of the entire meeting\",\n  \"key_topics\": [\"string array — main discussion topics covered, max 8 items\"],\n  \"decisions\": [\"string array — concrete decisions made, phrased as completed outcomes\"],\n  \"action_items\": [\n    {\n      \"task\": \"string — specific actionable task description\",\n      \"owner\": \"string — first and last name of the person responsible\",\n      \"deadline\": \"string — deadline exactly as mentioned in transcript\",\n      \"priority\": \"string — one of: high, normal, low\"\n    }\n  ],\n  \"risks_or_blockers\": [\"string array — risks, blockers, or concerns explicitly raised\"],\n  \"followups\": [\"string array — items explicitly deferred to a future meeting or follow-up\"]\n}\n\nCONTEXT: You are processing a professional business meeting transcript. Participants are identified by name followed by a colon at the start of their speech turns. Treat the content with confidentiality and professionalism."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1152,
+        -560
+      ],
+      "id": "98cb47d7-e6ff-4b76-ae1d-ee97f29d9668",
+      "name": "AI Analysis Agent"
+    },
+    {
+      "parameters": {
+        "model": "arcee-ai/trinity-mini:free",
+        "options": {
+          "maxTokens": 4096,
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        -352
+      ],
+      "id": "26b879de-5694-4be1-a2d6-a843a0af265c",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"meeting_summary\": \"3-5 sentence executive summary of the meeting\",\n  \"key_topics\": [\n    \"Q4 product roadmap priorities\",\n    \"Engineering capacity constraints\",\n    \"Customer feedback integration process\"\n  ],\n  \"decisions\": [\n    \"Launch feature X in November, not December\",\n    \"Sarah will lead the API integration workstream\"\n  ],\n  \"action_items\": [\n    {\n      \"task\": \"Draft technical spec for checkout flow redesign\",\n      \"owner\": \"Marcus Webb\",\n      \"deadline\": \"by EOD Friday\",\n      \"priority\": \"high\"\n    },\n    {\n      \"task\": \"Schedule follow-up sync with design team\",\n      \"owner\": \"Sarah Chen\",\n      \"deadline\": \"next week\",\n      \"priority\": \"normal\"\n    }\n  ],\n  \"risks_or_blockers\": [\n    \"Third-party payment provider migration may delay November launch\",\n    \"Two backend engineers on leave in November — capacity risk\"\n  ],\n  \"followups\": [\n    \"Security review of new API endpoints — deferred to next sprint\",\n    \"Budget approval for cloud infrastructure scaling — pending CFO review\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        -352
+      ],
+      "id": "df8c2d71-f3fd-494b-a6e0-ab6d9e84e25a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nlet parsed;\n\n// ✅ Case 1: Already structured (your current case)\nif (data.output) {\n  parsed = data.output;\n}\n\n// ✅ Case 2: Claude text response\nelse if (data.content?.[0]?.text) {\n  let rawText = data.content[0].text;\n  rawText = cleanJSON(rawText);\n  parsed = safeParse(rawText);\n}\n\n// ✅ Case 3: OpenAI text response\nelse if (data.choices?.[0]?.message?.content) {\n  let rawText = data.choices[0].message.content;\n  rawText = cleanJSON(rawText);\n  parsed = safeParse(rawText);\n}\n\n// ❌ Unknown structure\nelse {\n  throw new Error('PARSE_ERROR: Unexpected AI response structure');\n}\n\n// Schema validation\nconst requiredFields = [\n  'meeting_summary',\n  'key_topics',\n  'decisions',\n  'action_items',\n  'risks_or_blockers',\n  'followups'\n];\n\nconst missingFields = requiredFields.filter(f => !(f in parsed));\n\nif (missingFields.length > 0) {\n  return [{\n    json: {\n      ...data,\n      parse_success: false,\n      parse_error: `Missing fields: ${missingFields.join(', ')}`\n    }\n  }];\n}\n\n// Enrich action items\nconst enrichedActions = (parsed.action_items || []).map((item, i) => ({\n  task_id: `task_${data.meeting_id}_${String(i + 1).padStart(3, '0')}`,\n  task: item.task || '',\n  owner: item.owner || 'Unassigned',\n  owner_email: resolveEmail(item.owner, data.participants || []),\n  deadline: normalizeDeadline(item.deadline, data.meeting_date),\n  deadline_raw: item.deadline || 'No deadline set',\n  priority: item.priority || 'normal'\n}));\n\nreturn [{\n  json: {\n    ...data,\n    ai_output: { ...parsed, action_items: enrichedActions },\n    parse_success: true,\n    action_item_count: enrichedActions.length,\n    parsed_at: new Date().toISOString()\n  }\n}];\n\n// ------------------ HELPERS ------------------\n\nfunction cleanJSON(text) {\n  return text\n    .replace(/^```(?:json)?\\n?/, '')\n    .replace(/\\n?```$/, '')\n    .trim();\n}\n\nfunction safeParse(text) {\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error(`PARSE_ERROR: Invalid JSON → ${e.message}`);\n  }\n}\n\nfunction resolveEmail(ownerName, participants) {\n  if (!ownerName) return '';\n  const match = participants.find(p =>\n    p.name?.toLowerCase().includes(ownerName.toLowerCase())\n  );\n  return match?.email || '';\n}\n\nfunction normalizeDeadline(raw, meetingDate) {\n  if (!raw) return '';\n  const base = new Date(meetingDate);\n  const lower = raw.toLowerCase();\n\n  if (lower.includes('tomorrow')) {\n    base.setDate(base.getDate() + 1);\n    return base.toISOString().split('T')[0];\n  }\n\n  if (lower.includes('next week')) {\n    base.setDate(base.getDate() + 7);\n    return base.toISOString().split('T')[0];\n  }\n\n  const iso = new Date(raw);\n  return isNaN(iso.getTime())\n    ? raw\n    : iso.toISOString().split('T')[0];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -336
+      ],
+      "id": "a04d7010-32d9-4da6-94db-97aa6f7f57ff",
+      "name": "JSON Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d8e6d6b8-e0ca-4b0e-b76b-be589386c605",
+              "leftValue": "={{ $json.parse_success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -336
+      ],
+      "id": "d74bfda2-cc5f-490b-9cdc-ebdcd212d43f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "3266ce9c-8989-801c-94d2-dd2860315dde",
+          "mode": "list",
+          "cachedResultName": "Meeting Intelligence",
+          "cachedResultUrl": "https://www.notion.so/3266ce9c8989801c94d2dd2860315dde"
+        },
+        "title": "={{ $('Metadata Extractor').item.json.meeting_title }} -- {{ $('Metadata Extractor').item.json.meeting_date }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $('Metadata Extractor').item.json.meeting_title }}"
+            },
+            {
+              "key": "Platform|select",
+              "selectValue": "={{ $('Metadata Extractor').item.json.platform }}"
+            },
+            {
+              "key": "Duration (min)|number",
+              "numberValue": "={{ $('Metadata Extractor').item.json.duration_minutes }}"
+            },
+            {
+              "key": "Participants|number",
+              "numberValue": "={{ $('Metadata Extractor').item.json.participants.length }}"
+            },
+            {
+              "key": "Action Items Count|number",
+              "numberValue": "={{ $json.output.action_items.length }}"
+            },
+            {
+              "key": "Decision Count|number",
+              "numberValue": "={{ $json.output.decisions.length }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "Done"
+            },
+            {
+              "key": "AI Summary|rich_text",
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "={{ $json.output.meeting_summary }}",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            },
+            {
+              "key": "Meeting Date|rich_text",
+              "textContent": "={{ $('Metadata Extractor').item.json.meeting_date }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        -352
+      ],
+      "id": "32162efd-b6d4-4c30-92f2-22fe6cbca206",
+      "name": "Notion Page Creator",
+      "credentials": {
+        "notionApi": {
+          "id": "b3reG7kndQSpckTt",
+          "name": "n8n bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "messageType": "block",
+        "blocksUi": "=[\n  {\n    \"type\": \"header\",\n    \"text\": {\n      \"type\": \"plain_text\",\n      \"text\": \"📋 Meeting Recap — {{ $json.name }}\"\n    }\n  },\n  {\n    \"type\": \"context\",\n    \"elements\": [\n      {\n        \"type\": \"mrkdwn\",\n        \"text\": \"📅 {{ $json.property_meeting_date }} · ⏱️ {{ $json.property_duration_min }} min · 👥 {{ $json.participants?.length || 0 }} participants\"\n      }\n    ]\n  },\n  { \"type\": \"divider\" },\n  {\n    \"type\": \"section\",\n    \"text\": {\n      \"type\": \"mrkdwn\",\n      \"text\": \"*Summary*\\n{{ $json.property_ai_summary }}\"\n    }\n  },\n  {\n    \"type\": \"section\",\n    \"text\": {\n      \"type\": \"mrkdwn\",\n      \"text\": \"*✅ Action Items ({{ $json.property_action_items_count }})*\"\n    }\n  },\n  {\n    \"type\": \"actions\",\n    \"elements\": [\n      {\n        \"type\": \"button\",\n        \"text\": {\n          \"type\": \"plain_text\",\n          \"text\": \"View in Notion\"\n        },\n        \"url\": \"{{ $json.property_notion_url }}\"\n      }\n    ]\n  }\n]",
+        "text": "={{ $json.name }} -- {{ $json.property_meeting_date }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        912,
+        -352
+      ],
+      "id": "7439b313-3b0c-46d8-af5b-7b500d79a3f7",
+      "name": "Slack Meeting Recap",
+      "webhookId": "635c116b-eaab-45ec-9750-c5e4d84bde8d",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Receiver": {
+      "main": [
+        [
+          {
+            "node": "Input Validator & Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Validator & Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Transcript Preprocessor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcript Preprocessor": {
+      "main": [
+        [
+          {
+            "node": "Metadata Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata Extractor": {
+      "main": [
+        [
+          {
+            "node": "AI Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Analysis Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "JSON Output Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Output Parser": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Notion Page Creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion Page Creator": {
+      "main": [
+        [
+          {
+            "node": "Slack Meeting Recap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Meeting Recap": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9282a0f0-bd90-44af-90ea-58440a861bb1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "bJLQhSX8DS5JT2P2",
+  "tags": []
+}

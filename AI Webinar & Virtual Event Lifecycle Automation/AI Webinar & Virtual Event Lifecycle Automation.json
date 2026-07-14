@@ -1,0 +1,1783 @@
+{
+  "name": "AI Webinar & Virtual Event Lifecycle Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webinar-register",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true,
+          "responseContentType": "application/json"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "86db2442-2707-4516-8445-72f15d14457b",
+      "name": "Webhook",
+      "webhookId": "65fdb676-b1e0-461c-9282-17e7ba97eaa1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1bf2f34f-8910-402a-a9f7-9c59df79a17e",
+              "name": "registrant_id",
+              "value": "={{ 'REG-' + $now.toFormat('yyyyMMdd') + '-' + Math.random().toString(36).substring(2,8).toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "2d3fca46-55da-4036-a8ee-05658074020c",
+              "name": "name",
+              "value": "={{ $json.body.name.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "43000946-e07a-4df4-8743-d65492737944",
+              "name": "email",
+              "value": "={{ $json.body.email.toLowerCase().trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "949c371c-9fcf-444c-9771-1f7bbdc3c49e",
+              "name": "company",
+              "value": "={{ $json.body.company || 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "db531a87-1f03-4339-8adb-928f7ca4d02f",
+              "name": "phone",
+              "value": "={{ $json.body.phone || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "7d3ee750-e760-4764-be1f-31fc38e45e0e",
+              "name": "event_name",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "0a5bfaf5-60b2-4b15-9f2e-b3e8f3b14087",
+              "name": "event_date",
+              "value": "={{ $json.body.event_date }}",
+              "type": "string"
+            },
+            {
+              "id": "cb9df39a-7cd1-4dfb-958e-69f6073c5d2e",
+              "name": "event_time",
+              "value": "={{ $json.body.event_time }}",
+              "type": "string"
+            },
+            {
+              "id": "5157830d-7697-43f8-b657-b559d3b2e0d4",
+              "name": "timezone",
+              "value": "={{ $json.body.timezone || 'UTC' }}",
+              "type": "string"
+            },
+            {
+              "id": "d3e6a5ac-d266-46f1-90fe-97e25b8c97d5",
+              "name": "source",
+              "value": "={{ $json.body.source || 'direct' }}",
+              "type": "string"
+            },
+            {
+              "id": "089b4788-25fa-4acb-a63a-5d987aebd09b",
+              "name": "registration_status",
+              "value": "registered",
+              "type": "string"
+            },
+            {
+              "id": "cd4d294c-0038-43ea-8bbc-ed12ab9467cd",
+              "name": "attendance_status",
+              "value": "pending",
+              "type": "string"
+            },
+            {
+              "id": "80a66bb2-02c4-4596-b367-2b41babdf3af",
+              "name": "segment",
+              "value": "unprocessed",
+              "type": "string"
+            },
+            {
+              "id": "660482dd-0690-466e-bfdb-bf234aa32171",
+              "name": "registered_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "89628c39-a351-449e-9103-1ac7d0fdead4",
+              "name": "follow_up_sent",
+              "value": "false",
+              "type": "string"
+            },
+            {
+              "id": "e770451d-fe0d-476d-81f0-7193fb70b15f",
+              "name": "replay_sent",
+              "value": "false",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "27b57388-1301-44d9-b752-bb64fbf0a5f0",
+      "name": "Set Registration Fields"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ",
+          "mode": "list",
+          "cachedResultName": "AI Webinar & Virtual Event Lifecycle Automation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registrants",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "registrant_id": "={{ $json.registrant_id }}",
+            "name": "={{ $json.name }}",
+            "phone": "={{ $json.phone }}",
+            "event_date": "={{ $json.event_date }}",
+            "event_time": "={{ $json.event_time }}",
+            "timezone": "={{ $json.timezone }}",
+            "source": "={{ $json.source }}",
+            "registration_status": "={{ $json.registration_status }}",
+            "attendance_status": "={{ $json.attendance_status }}",
+            "registered_at": "={{ $json.registered_at }}",
+            "email": "={{ $json.email }}",
+            "company": "={{ $json.company }}",
+            "event_name": "={{ $json.event_name }}",
+            "segment": "={{ $json.segment }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "registrant_id",
+              "displayName": "registrant_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_name",
+              "displayName": "event_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "event_date",
+              "displayName": "event_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event_time",
+              "displayName": "event_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timezone",
+              "displayName": "timezone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "registration_status",
+              "displayName": "registration_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attendance_status",
+              "displayName": "attendance_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "segment",
+              "displayName": "segment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "watch_percentage",
+              "displayName": "watch_percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "duration_minutes",
+              "displayName": "duration_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "engagement_score",
+              "displayName": "engagement_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "questions_asked",
+              "displayName": "questions_asked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "poll_responses",
+              "displayName": "poll_responses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_messages",
+              "displayName": "chat_messages",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "segment_reason",
+              "displayName": "segment_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "registered_at",
+              "displayName": "registered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attended_at",
+              "displayName": "attended_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "follow_up_sent",
+              "displayName": "follow_up_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replay_sent",
+              "displayName": "replay_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        0
+      ],
+      "id": "66f836a4-92cf-4480-8b61-46bda50d2510",
+      "name": "Google Sheets: Append Registrant",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "=storysnippents@gmail.com",
+        "subject": "=You're registered! {{ $json.event_name }} – {{ $json.event_date }}",
+        "message": "==Hi {{$json.name || \"there\"}},\n\n🎉 You're in!\n\nYour spot is confirmed for {{ $json.event_name }}.\n\nEvent Details:\nDate: {{$json.event_date}}\nTime: {{$json.event_time}} ({{$json.timezone}})\nYour ID: {{$json.registrant_id}}\n\nYou'll receive a reminder 24 hours before and again 1 hour before the event.\n\nQuestions? Just reply to this message.",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "storysnippents@gmail.com"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "460e586c-f0a3-4417-af67-fe258bc48379",
+      "name": "Gmail: Confirmation Email",
+      "webhookId": "854a53af-6d9b-4355-883d-5edba25ff36d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Code - Calculate Event DateTime\nconst eventDate = $('Google Sheets: Append Registrant').first().json.event_date;   // \"2025-02-15\"\nconst eventTime = $('Google Sheets: Append Registrant').first().json.event_time;   // \"14:00\"\nconst timezone  = $('Google Sheets: Append Registrant').first().json.timezone;     // \"America/New_York\"\n\n// Build ISO string\nconst eventISO = `${eventDate}T${eventTime}:00`;\nconst eventMs  = new Date(eventISO).getTime();\nconst nowMs    = Date.now();\n\n// 24h before = eventMs - 86400000\n// 1h before  = eventMs - 3600000\nconst wait24hMs = Math.max(0, (eventMs - 86400000) - nowMs);\nconst wait1hMs  = Math.max(0, (eventMs - 3600000)  - nowMs);\n\nreturn items.map(item => ({\n  json: {\n    ...item.json,\n    event_iso:     eventISO,\n    event_ms:      eventMs,\n    wait_24h_ms:   wait24hMs,\n    wait_1h_ms:    wait1hMs,\n    reminder_24h_at: new Date(eventMs - 86400000).toISOString(),\n    reminder_1h_at:  new Date(eventMs - 3600000).toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "d527c92a-ac38-4b82-9390-b64de40a8f75",
+      "name": "Code: Calculate Event Datetime"
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $json.reminder_24h_at }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        0
+      ],
+      "id": "252815d2-50d7-4799-aa94-9350903c17a8",
+      "name": "Wait",
+      "webhookId": "214db8cb-91ad-412a-a8ed-d00b431ea53b"
+    },
+    {
+      "parameters": {
+        "sendTo": "=storysnippents@gmail.com",
+        "subject": "=Tomorrow: {{ $('Google Sheets: Append Registrant').item.json.event_name }} – Don't forget!",
+        "message": "==Hi {{$('Google Sheets: Append Registrant').item.json.name || \"there\"}},\n\nYour webinar is tomorrow! 🎉\n\nJust a reminder that {{$('Google Sheets: Append Registrant').item.json.event_name}} starts in 24 hours.\n\nWhen:\n{{$('Google Sheets: Append Registrant').item.json.event_date}} at {{$('Google Sheets: Append Registrant').item.json.event_time}} {{$('Google Sheets: Append Registrant').item.json.timezone}}\n\nAdd it to your calendar now so you don't miss it.\n\nSee you tomorrow!  \nThe Events Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1216,
+        0
+      ],
+      "id": "7833eea1-1be1-421f-a20b-34dfbd84896d",
+      "name": "Gmail: 24-Hour Reminder",
+      "webhookId": "15d9ad16-d268-4eab-9e66-a4e32b310334",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $('Code: Calculate Event Datetime').item.json.reminder_1h_at }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1424,
+        0
+      ],
+      "id": "8798802b-0fb7-468a-9a2b-3e554b0a6ea7",
+      "name": "Wait: 1h Reminder Delay",
+      "webhookId": "6bde1322-ab64-405a-bea7-d475d2fe6fbc"
+    },
+    {
+      "parameters": {
+        "sendTo": "=storysnippents@gmail.com",
+        "subject": "=🔴 Starting in 1 hour: {{ $('Google Sheets: Append Registrant').item.json.event_name }}",
+        "message": "=Hi {{$('Google Sheets: Append Registrant').item.json.name || \"there\"}},\n\nStarting in 1 hour! ⏳\n\n{{$('Google Sheets: Append Registrant').item.json.event_name}} starts in just 60 minutes. Get ready!\n\nJoin now:\nhttps://your-webinar-link.com/join\n\nIf you can't make it live, a replay will be sent to this email within 2 hours of the event.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1632,
+        0
+      ],
+      "id": "2e772fec-c104-4959-b339-dab844cf87bd",
+      "name": "Gmail: 1-Hour Reminder",
+      "webhookId": "15d9ad16-d268-4eab-9e66-a4e32b310334",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webinar-attendance",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        208
+      ],
+      "id": "9403ab2b-9d7d-4eb9-9c1e-55c0ee896dad",
+      "name": "Webhook: Attendance Data Intake",
+      "webhookId": "7bc3d8a0-0c40-4a35-81cf-3749e33017aa"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json.body;\nconst eventDuration = input.event_duration_minutes || 60;\n\nreturn input.attendees.map(attendee => ({\n  json: {\n    email: (attendee.email || \"\").toLowerCase().trim(),\n    attendance_status: attendee.status,\n    join_time: attendee.join_time || null,\n    leave_time: attendee.leave_time || null,\n    duration_minutes: attendee.duration_minutes || 0,\n    questions_asked: attendee.questions_asked || 0,\n    poll_responses: attendee.poll_responses || 0,\n    chat_messages: attendee.chat_messages || 0,\n\n    event_name: input.event_name,\n    event_date: input.event_date,\n    event_duration_minutes: eventDuration,\n\n    watch_percentage: Math.round(\n      ((attendee.duration_minutes || 0) / eventDuration) * 100\n    ),\n\n    engagement_score:\n      ((attendee.questions_asked || 0) * 10) +\n      ((attendee.poll_responses || 0) * 5) +\n      ((attendee.chat_messages || 0) * 2) +\n      Math.round(((attendee.duration_minutes || 0) / eventDuration) * 100)\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        208
+      ],
+      "id": "60670f56-f217-434e-97a9-17a6cbc6cb9f",
+      "name": "Code: Split Attendees Array"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ",
+          "mode": "list",
+          "cachedResultName": "AI Webinar & Virtual Event Lifecycle Automation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registrants",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "email",
+              "lookupValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        432,
+        208
+      ],
+      "id": "a10555af-4e43-4dbe-b2a7-fbbd130d0c3f",
+      "name": "Google Sheets: Lookup Registrant",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "email",
+              "field2": "email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        624,
+        208
+      ],
+      "id": "81f7bdc1-4e30-4c4d-a3ad-04932227e5df",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9552398a-75f5-4a9a-a602-fc9c30802c9b",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f14e20e6-647a-4c31-ba57-78621c7e7fe2",
+              "leftValue": "={{ $json.attendance_status }}",
+              "rightValue": "=^(attended|no-show|partial)$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        208
+      ],
+      "id": "efdfc390-94b8-462c-8cb0-05bb32cb4b26",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this webinar attendee and return a JSON object.\n\nAttendee data:\n- Email: {{ $json.email }}\n- Name: {{ $json.name }}\n- Company: {{ $json.company }}\n- Attendance status: {{ $json.attendance_status }}\n- Watch percentage: {{ $json.watch_percentage }}%\n- Duration watched: {{ $json.duration_minutes }} minutes out of {{ $json.event_duration_minutes }}\n- Questions asked: {{ $json.questions_asked }}\n- Poll responses: {{ $json.poll_responses }}\n- Chat messages: {{ $json.chat_messages }}\n- Engagement score: {{ $json.engagement_score }}\n- Lead source: {{ $json.source }}\nSegmentation rules:\n- HOT: attended AND (watch_percentage >= 80 OR engagement_score >= 90)\n- WARM: attended AND (watch_percentage between 30 and 79) OR attended with low engagement\n- COLD: no-show OR watch_percentage < 30\n\nReturn ONLY this JSON:\n{\n  \"segment\": \"HOT|WARM|COLD\",\n  \"reason\": \"one sentence explanation referencing specific data points\",\n  \"confidence\": 0.0 to 1.0,\n  \"email_tone\": \"urgent|nurture|re-engage\",\n  \"key_signal\": \"the single most important data point that drove this classification\",\n  \"email_body\": \"write a 3-sentence personalized follow-up email body for this specific\n                 person. Reference their company and specific engagement signals.\n                 Sign off as 'The AI Automation Team'.\"\n}",
+        "options": {
+          "systemMessage": "=You are a lead scoring expert for B2B SaaS webinars. You analyze webinar\nattendance data and classify leads into HOT, WARM, or COLD segments.\nAlways respond with valid JSON only. No markdown fences, no explanations\noutside the JSON object."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        192
+      ],
+      "id": "0c24e18d-e1c4-49e5-920d-2aa003d9d459",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {
+          "maxTokens": 500,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        320
+      ],
+      "id": "996bfa9c-d0ad-4266-9c6a-b2900d2a4e1f",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  let aiResult = {};\n\n  try {\n    const content = item.json.output;\n\n    // Clean markdown fences if present\n    const cleaned = content\n      .replace(/```json\\n?/gi, '')\n      .replace(/```\\n?/gi, '')\n      .trim();\n\n    aiResult = JSON.parse(cleaned);\n\n  } catch (e) {\n    // Fallback if parsing fails\n    aiResult = {\n      segment: 'WARM',\n      reason: 'AI parse error – defaulting to WARM for manual review',\n      confidence: 0.0,\n      email_tone: 'nurture',\n      key_signal: 'parse_error',\n      email_body: 'Thank you for attending our webinar. We hope you found it valuable and will follow up soon.'\n    };\n  }\n\n  return {\n    json: {\n      ...item.json,\n\n      segment: aiResult.segment || 'WARM',\n      segment_reason: aiResult.reason || '',\n      confidence: aiResult.confidence ?? 0,\n      email_tone: aiResult.email_tone || 'nurture',\n      key_signal: aiResult.key_signal || '',\n      ai_email_body: aiResult.email_body || ''\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        192
+      ],
+      "id": "2b09c9b1-f6b3-4e11-88e6-39f59d5dbaaf",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.segment }}",
+                    "rightValue": "HOT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1e36012f-9665-454a-bcc2-d558febf2a18"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f1ca0da2-883a-4e94-bc17-46d246ff5309",
+                    "leftValue": "={{ $json.segment }}",
+                    "rightValue": "WARM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d1e7597d-4436-43e4-bd3e-f2572d8557b2",
+                    "leftValue": "={{ $json.segment }}",
+                    "rightValue": "COLD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1600,
+        176
+      ],
+      "id": "1eaf72d1-779a-481c-b1b9-a69c60f9cb4c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "={{ $('If').item.json.name.split(' ')[0] }}, let's talk – you clearly get AI automation",
+        "message": "=Hi {{ $('If').item.json.name ?  $('If').item.json.name.split(\" \")[0] : \"There\"}},\n\nYou watched {{ $('If').item.json.watch_percentage }}% of the webinar 🔥\n\n{{$json.ai_email_body}}\n\nGiven your engagement level, I think you're ready to see what this looks like for {{ $('If').item.json.company !== \"Unknown\" ? $('If').item.json.company : \"your business\"}} specifically.\n\nBook a 20-min call:\nhttps://calendly.com/your-team/demo\n\nP.S. Spots are limited this week. This link will always connect you with the right person on our team.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        432
+      ],
+      "id": "426a8eaa-fbd4-4677-82a9-2862900da216",
+      "name": "Gmail: HOT Lead Follow-up",
+      "webhookId": "a122577c-7776-458b-a625-596b97c2d7c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "=You missed it – here's the replay (expires in 7 days)",
+        "message": "==<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937\">\n\n<div style=\"background:#374151;padding:20px 24px;border-radius:8px 8px 0 0\">\n  <h2 style=\"color:white;margin:0;font-size:18px\">\n    We saved your spot 🎬\n  </h2>\n</div>\n\n<div style=\"padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none\">\n\n  <p>\n    Hi {{$json.name ? $json.name.split(\" \")[0] : \"there\"}},\n  </p>\n\n  <p>\n    Life gets busy – we completely understand. The good news is that \n    <strong>{{$json.event_name}}</strong> was recorded and you have 7 days to watch it.\n  </p>\n\n  <div style=\"text-align:center;margin:24px 0\">\n    <a href=\"https://your-replay-link.com/webinar\"\n       style=\"background:#374151;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold\">\n       Watch the Replay →\n    </a>\n  </div>\n\n  <p>The session covers:</p>\n\n  <ul style=\"color:#374151;line-height:1.8\">\n    <li>How to automate webinar follow-ups end-to-end</li>\n    <li>Using free AI tools for lead scoring</li>\n    <li>Real n8n workflow walkthrough (copy-paste ready)</li>\n  </ul>\n\n  <p style=\"color:#6b7280;font-size:13px\">\n    No pressure. If you have questions after watching, just reply here.\n  </p>\n\n</div>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        192,
+        608
+      ],
+      "id": "bc3dbf38-7bbd-453a-a2ab-ab05b2e52a16",
+      "name": "Gmail: COLD Lead Re-engagement",
+      "webhookId": "a122577c-7776-458b-a625-596b97c2d7c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7f039131-a597-4012-b77a-390431439cca",
+              "leftValue": "={{ $('Code in JavaScript').item.json.confidence }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        432
+      ],
+      "id": "1f04727a-4f8d-475f-896f-d04bdb88c883",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=🔥 *HOT LEAD from {{ $('If').item.json.event_name }}*\n\nAttachment: Color: #DC2626  \n\nFields:\nName: {{ $('If').item.json.name }}\nEmail: {{ $('If').item.json.email }}\nCompany: {{ $('If').item.json.company }}\nWatch %: {{ $('If').item.json.watch_percentage }}% \nEngagement Score:  {{ $('If').item.json.engagement_score }}\nKey Signal: {{ $('Code in JavaScript').item.json.key_signal }}\nI Reason: {{ $('Code in JavaScript').item.json.segment_reason }}\n\nFooter: n8n Webinar Automation  \nTimestamp: ={{ Math.floor(Date.now() / 1000) }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        384,
+        416
+      ],
+      "id": "b3ca0cf9-bb43-4c7b-b565-7dda2e2a68ee",
+      "name": "Slack: Hot Lead Alert",
+      "webhookId": "c3f7102a-dc12-4397-a530-ac508800d169",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        592,
+        416
+      ],
+      "id": "b84b681c-3fc6-4633-a6e9-a9fe5f1df17d",
+      "name": "Wait1",
+      "webhookId": "33e91db2-4a12-4ead-b863-fd50690e7ecf"
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        800,
+        592
+      ],
+      "id": "25ee4da7-999a-4315-92f7-3c6c36b57dfc",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a complete replay distribution email package for this webinar.\n\nWebinar details:\n- Name: {{ $('If').item.json.name }}\n- Date: {{ $('If').item.json.event_date }}\n- Total duration: {{ $('If').item.json.event_duration_minutes }} minutes\n- Topic area: AI automation for business workflows\n\nReturn ONLY this JSON:\n{\n  \"email_subject\": \"compelling subject line under 60 characters, create curiosity\",\n  \"preview_text\": \"email preview text under 90 characters\",\n  \"headline\": \"short punchy headline, 5-8 words\",\n  \"summary_paragraph\": \"2-3 sentences: what was covered, why it matters, what viewer will learn\",\n  \"top_3_takeaways\": [\n    \"concrete actionable takeaway 1\",\n    \"concrete actionable takeaway 2\",\n    \"concrete actionable takeaway 3\"\n  ],\n  \"cta_text\": \"call to action button text, 2-4 words\",\n  \"ps_line\": \"compelling P.S. line that creates 7-day urgency for the replay link\"\n}",
+        "options": {
+          "systemMessage": "=You are a B2B SaaS content writer who specializes in post-webinar communication.\nYou write clear, benefit-focused summaries that make people want to watch the replay.\nReturn ONLY valid JSON. No markdown code fences."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        800,
+        416
+      ],
+      "id": "abfd0d28-22ed-4b61-a64a-128cb7dc2299",
+      "name": "Generate AI Webinar Summary"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ",
+          "mode": "list",
+          "cachedResultName": "AI Webinar & Virtual Event Lifecycle Automation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registrants",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "event_name",
+              "lookupValue": "={{ $('If').item.json.event_name }}"
+            },
+            {
+              "lookupColumn": "replay_sent"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1360,
+        416
+      ],
+      "id": "8e984862-6c2d-44b2-848f-338a5ae41558",
+      "name": "Google Sheets: Read All Registrants",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  let summary = {};\n  try {\n    const content = item.json.choices[0].message.content;\n    const cleaned = content\n      .replace(/```json\\n?/gi, '')\n      .replace(/```\\n?/gi, '')\n      .trim();\n    summary = JSON.parse(cleaned);\n  } catch(e) {\n    summary = {\n      email_subject:       'Watch the replay: ' + (item.json.event_name || 'Our Webinar'),\n      preview_text:        'The full recording is now available for you.',\n      headline:            'The Replay Is Ready',\n      summary_paragraph:   'Thank you for your interest in our webinar. The recording covers everything discussed during the live session.',\n      top_3_takeaways:     ['Key automation strategies', 'Free tool stack revealed', 'Step-by-step implementation'],\n      cta_text:            'Watch Now',\n      ps_line:             'P.S. This replay expires in 7 days – watch it while it\\'s fresh.'\n    };\n  }\n  return {\n    json: {\n      ...item.json,\n      summary_email_subject:   summary.email_subject,\n      summary_preview:         summary.preview_text,\n      summary_headline:        summary.headline,\n      summary_paragraph:       summary.summary_paragraph,\n      summary_takeaways:       (summary.top_3_takeaways || []).join('|||'),\n      summary_cta:             summary.cta_text,\n      summary_ps:              summary.ps_line\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        416
+      ],
+      "id": "64b62aa0-8c5d-451a-b5db-132493745265",
+      "name": "Code: Parse Summary Response"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "={{ $('Code: Parse Summary Response').item.json.summary_email_subject }}",
+        "message": "=Hi {{$json.name ? $json.name.split(\" \")[0] : \"there\"}},\n\n{{ $('Code: Parse Summary Response').item.json.summary_headline }}\n\n{{ $('Code: Parse Summary Response').item.json.summary_preview }}\n\n{{ $('Code: Parse Summary Response').item.json.summary_paragraph }}\n\nTop 3 takeaways:\n\n{{ $('Code: Parse Summary Response').item.json.summary_takeaways.split(\"|||\").map((t, i) => `${i + 1}. ${t}`).join(\"\\n\")\n}}\n\n\n{{ $('Code: Parse Summary Response').item.json.summary_cta }}:\n{{$json.replay_link || 'https://your-replay-link.com/webinar'}}\n\n{{ $('Code: Parse Summary Response').item.json.summary_ps }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        416
+      ],
+      "id": "3b691bf7-b885-45d3-a34d-fb3d914d3107",
+      "name": "Gmail: Send Replay Email",
+      "webhookId": "f087b352-2160-4a73-b5e1-a32e67a4bca5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ",
+          "mode": "list",
+          "cachedResultName": "AI Webinar & Virtual Event Lifecycle Automation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Registrants",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1avIj_F3leYjeplBNhDJuNV4j9KevaEtrgbYtJrPnamQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $('Google Sheets: Read All Registrants').item.json.email }}",
+            "attendance_status": "={{ $('Code: Split Attendees Array').item.json.attendance_status }}",
+            "duration_minutes": "={{ $('Code: Split Attendees Array').item.json.duration_minutes }}",
+            "watch_percentage": "={{ $('Code: Split Attendees Array').item.json.watch_percentage }}",
+            "engagement_score": "={{ $('Code: Split Attendees Array').item.json.engagement_score }}",
+            "questions_asked": "={{ $('Code: Split Attendees Array').item.json.questions_asked }}",
+            "poll_responses": "={{ $('Code: Split Attendees Array').item.json.poll_responses }}",
+            "segment": "={{ $('Code in JavaScript').item.json.segment }}",
+            "segment_reason": "={{ $('Code in JavaScript').item.json.segment_reason }}",
+            "confidence": "={{ $('Code in JavaScript').item.json.confidence }}",
+            "attended_at": "={{ $('Code: Split Attendees Array').item.json.join_time }}",
+            "follow_up_sent": "True",
+            "replay_sent": "True",
+            "notes": "={{ 'Auto-processed: ' + $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "registrant_id",
+              "displayName": "registrant_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "event_name",
+              "displayName": "event_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "event_date",
+              "displayName": "event_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "event_time",
+              "displayName": "event_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "timezone",
+              "displayName": "timezone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "registration_status",
+              "displayName": "registration_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "attendance_status",
+              "displayName": "attendance_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "segment",
+              "displayName": "segment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "watch_percentage",
+              "displayName": "watch_percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "duration_minutes",
+              "displayName": "duration_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "engagement_score",
+              "displayName": "engagement_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "questions_asked",
+              "displayName": "questions_asked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "poll_responses",
+              "displayName": "poll_responses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_messages",
+              "displayName": "chat_messages",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "segment_reason",
+              "displayName": "segment_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "registered_at",
+              "displayName": "registered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "attended_at",
+              "displayName": "attended_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "follow_up_sent",
+              "displayName": "follow_up_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "replay_sent",
+              "displayName": "replay_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        416
+      ],
+      "id": "5362a9bf-508e-4f44-9ce5-28f68774bb07",
+      "name": "Google Sheets: Update CRM Row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=✅ {{ $('Google Sheets: Read All Registrants').item.json.event_name }}*\n\n— Post-Event Processing Complete\n\nTotal registrants processed: {{ $json.total_count || 'see sheet' }}\n\nFollow-up emails sent: Replay emails sent: \n\n✓• CRM updated: 📊 View full report: https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1664,
+        640
+      ],
+      "id": "d0f26e61-36a3-409b-b8a6-816f71bc7742",
+      "name": "Slack: Daily Digest Summary",
+      "webhookId": "bbd72ac1-e652-42ef-a92a-c833f097ba2d",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "=3 things from the webinar you can implement this week",
+        "message": "==<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937\">\n\n<div style=\"background:#D97706;padding:20px 24px;border-radius:8px 8px 0 0\">\n  <h2 style=\"color:white;margin:0;font-size:18px\">\n    Your webinar recap + action items\n  </h2>\n</div>\n\n<div style=\"padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none\">\n\n  <p>\n    Hi {{ $('If').item.json.name.split(\" \")[0]}},\n  </p>\n\n  <p>\n    {{$json.ai_email_body}}\n  </p>\n\n  <h3 style=\"font-size:15px;color:#374151\">\n    3 quick wins to try this week:\n  </h3>\n\n  <ol style=\"color:#374151;line-height:1.8\">\n    <li>Automate your lead capture with a webhook + Google Sheets</li>\n    <li>Set up a 3-email welcome sequence using n8n + Gmail</li>\n    <li>Add AI scoring to your existing forms with OpenRouter</li>\n  </ol>\n\n  <p>\n    Want us to walk you through any of these for your specific workflow?\n  </p>\n\n  <div style=\"text-align:center;margin:24px 0\">\n    <a href=\"https://your-resource-hub.com\"\n       style=\"background:#D97706;color:white;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:bold\">\n       Get the Implementation Guide →\n    </a>\n  </div>\n\n</div>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        608
+      ],
+      "id": "a15dba85-7ccd-4794-b0aa-440254824368",
+      "name": "Gmail: WARM Lead Nurture",
+      "webhookId": "a122577c-7776-458b-a625-596b97c2d7c0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Registration Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Registration Fields": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Append Registrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Append Registrant": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Code: Calculate Event Datetime",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Calculate Event Datetime": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Gmail: 24-Hour Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: 24-Hour Reminder": {
+      "main": [
+        [
+          {
+            "node": "Wait: 1h Reminder Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait: 1h Reminder Delay": {
+      "main": [
+        [
+          {
+            "node": "Gmail: 1-Hour Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Attendance Data Intake": {
+      "main": [
+        [
+          {
+            "node": "Code: Split Attendees Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Split Attendees Array": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Lookup Registrant",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Lookup Registrant": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Gmail: HOT Lead Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: WARM Lead Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail: COLD Lead Re-engagement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: HOT Lead Follow-up": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Slack: Hot Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack: Hot Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Webinar Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate AI Webinar Summary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Webinar Summary": {
+      "main": [
+        [
+          {
+            "node": "Code: Parse Summary Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Parse Summary Response": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Read All Registrants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Read All Registrants": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Send Replay Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Send Replay Email": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Update CRM Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Update CRM Row": {
+      "main": [
+        [
+          {
+            "node": "Slack: Daily Digest Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "15f6324f-4ef2-48b2-83bc-c57ecfd97412",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "0ALdOUbkuIAHy0aS",
+  "tags": []
+}

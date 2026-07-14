@@ -1,0 +1,1909 @@
+{
+  "name": "AI Product Review Aggregation & Auto-Response Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        -208
+      ],
+      "id": "924dd19d-b423-45d2-a09e-12fe50d8f430",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://play.google.com/store/apps/details?id=com.spotify.music",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        -320
+      ],
+      "id": "c9a48298-9a1c-4509-9fa7-86e309c2e31e",
+      "name": "Fetch Google Play Store Reviews"
+    },
+    {
+      "parameters": {
+        "url": "https://itunes.apple.com/rss/customerreviews/page=1/id=324684580/sortby=mostrecent/json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        -112
+      ],
+      "id": "45c7281b-9d3a-4251-8f64-afbf26c22eef",
+      "name": "Fetch Apple App Store Reviews"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.data;\n\n// Extract all script blocks\nconst matches = [...html.matchAll(/AF_initDataCallback\\((\\{[\\s\\S]*?\\})\\);/g)];\n\nlet reviews = [];\n\nfor (const match of matches) {\n  try {\n    const parsed = JSON.parse(match[1]);\n\n    if (parsed.key !== 'ds:11') continue;\n\n    // 🔥 FIX: Correct nesting level\n    const reviewBlocks = parsed?.data?.[0]?.[0] || [];\n\n    if (!Array.isArray(reviewBlocks)) continue;\n\n    for (const r of reviewBlocks) {\n      try {\n        const review_id = r?.[0];\n        const author = r?.[1]?.[0] || \"Anonymous\";\n        const rating = r?.[2] || r?.[1]?.[1]?.[1] || 3;\n        const body = r?.[4] || \"\";\n\n        const timestampSec = r?.[5]?.[0];\n        const date = timestampSec\n          ? new Date(timestampSec * 1000).toISOString()\n          : new Date().toISOString();\n\n        if (!body) continue;\n\n        reviews.push({\n          review_id,\n          author,\n          rating,\n          body,\n          date\n        });\n\n      } catch {}\n    }\n\n  } catch {}\n}\n\n// 🚨 DEBUG: if still empty, return raw structure\nif (reviews.length === 0) {\n  return [{\n    json: {\n      error: \"No reviews parsed\",\n      hint: \"Structure may have changed\",\n      sample_keys: matches.map(m => {\n        try {\n          const p = JSON.parse(m[1]);\n          return p.key;\n        } catch { return null; }\n      }).filter(Boolean)\n    }\n  }];\n}\n\n// Final output\nreturn reviews.slice(0, 20).map((r, i) => ({\n  json: {\n    review_id:      r.review_id || `playstore_${Date.now()}_${i}`,\n    platform:       'google_play',\n    author:         r.author,\n    rating:         r.rating,\n    title:          '',\n    body:           r.body,\n    body_truncated: r.body.slice(0, 500),\n    date:           r.date,\n    url:            'https://play.google.com/store/apps/details?id=YOUR.APP',\n    fetched_at:     new Date().toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -320
+      ],
+      "id": "79e1e51a-44af-4309-ac1d-0b5f0c5e2bbd",
+      "name": "Parse Play Store HTML → JSON Array"
+    },
+    {
+      "parameters": {
+        "jsCode": "const feed = $input.first().json.feed;\nconst entries = feed?.entry || [];\n\n// Skip first entry — it's the app metadata, not a review\nreturn entries.slice(1).map(r => ({\n  json: {\n    review_id:      `appstore_${r.id?.label || Math.random()}`,\n    platform:       'app_store',\n    author:         r.author?.name?.label || 'Anonymous',\n    rating:         parseInt(r['im:rating']?.label) || 3,\n    title:          r.title?.label || '',\n    body:           r.content?.label || '',\n    body_truncated: (r.content?.label || '').slice(0, 500),\n    date:           r.updated?.label || new Date().toISOString(),\n    url:            `https://apps.apple.com/app/id${r['im:appId']?.label}`,\n    fetched_at:     new Date().toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -112
+      ],
+      "id": "ec01de53-d28e-4b93-baba-be30f7ccd805",
+      "name": "Parse App Store JSON → Normalized Array"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        704,
+        -224
+      ],
+      "id": "f8420561-4ac0-485c-af65-b8a1d91d9024",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stripHtml = s => (s || '').replace(/<[^>]*>/g, '').replace(/\\s+/g, ' ').trim();\n\nreturn $input.all().map(item => {\n  const r = item.json;\n  const body = stripHtml(r.body || r.body_truncated || '');\n  return {\n    json: {\n      review_id:      r.review_id || `unknown_${Date.now()}`,\n      platform:       r.platform || 'unknown',\n      author:         stripHtml(r.author),\n      rating:         Math.min(5, Math.max(1, parseInt(r.rating) || 3)),\n      title:          stripHtml(r.title).slice(0, 200),\n      body:           body,\n      body_truncated: body.slice(0, 500),\n      date:           r.date || new Date().toISOString(),\n      url:            r.url || '',\n      fetched_at:     new Date().toISOString(),\n      // AI fields — to be filled by Node 14\n      sentiment:      null,\n      urgency:        null,\n      tags:           [],\n      ai_response:    null,\n      processed:      false\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -224
+      ],
+      "id": "5a70c8fd-d473-409d-942e-986ec1c93284",
+      "name": "Normalize & Clean All Reviews"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "91450d2a-0430-4bf4-b92b-0f45afff9ea2",
+              "leftValue": "={{ $json.review_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -224
+      ],
+      "id": "2b94ca4f-1efc-4e85-b787-3a3c98e855ea",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"sentiment\":       \"negative\",\n  \"rating\":          1,\n  \"urgency\":         \"critical\",\n  \"tags\":            [\"support\", \"bug\", \"billing\"],\n  \"issue_category\": \"support\",\n  \"escalate\":        true,\n  \"response\": \"We're sincerely sorry for the experience you've had — a 3-day wait is unacceptable, and we take data loss reports extremely seriously. We've flagged your case as urgent internally. Please email priority@yourcompany.com with your ticket number and we will personally ensure this is resolved within 24 hours with a dedicated senior agent. We want to make this right.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        -32
+      ],
+      "id": "6e3f7283-d665-4150-b039-3f64449c6e4e",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -32
+      ],
+      "id": "b6cec8c8-1de7-461a-9509-69e59548fe4d",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "fchZIvrzsQTdv2EN",
+          "name": "PromptLancer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Platform: {{ $json.platform }}\nRating: {{ $json.rating }}/5\nTitle: {{ $json.title }}\nReview: {{ $json.body_truncated }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an expert customer experience analyst and support response writer.\n\nAnalyze the following product review and return ONLY a valid JSON object with no markdown, no preamble, and no explanation.\n\nREQUIRED OUTPUT FORMAT (strict JSON only):\n{\n  \"sentiment\": \"positive\" | \"negative\" | \"neutral\",\n  \"rating\": 1-5,\n  \"urgency\": \"critical\" | \"high\" | \"medium\" | \"low\",\n  \"tags\": [\"tag1\", \"tag2\"],\n  \"response\": \"Your personalized response here\",\n  \"issue_category\": \"bug\" | \"support\" | \"pricing\" | \"feature\" | \"shipping\" | \"ux\" | \"general\" | \"praise\",\n  \"escalate\": true | false\n}\n\nSENTIMENT RULES:\n- positive: Rating 4-5, customer is happy, praise, recommends product\n- negative: Rating 1-2, frustration, complaint, demands, threats\n- neutral: Rating 3, mixed feelings, neither clearly positive nor negative\n\nURGENCY RULES:\n- critical: Customer threatening chargeback, legal action, public escalation, extreme anger (⚑ escalate=true)\n- high: Major bug reported, service outage mentioned, rating=1 with strong language\n- medium: Rating=2-3, feature request, moderate frustration\n- low: Rating=4-5, minor suggestions, general praise\n\nTAGS: Pick 1-3 relevant tags from: [support, bug, pricing, ux, feature-request, performance, reliability, onboarding, documentation, billing, shipping, trust, refund, praise, competitor-mention]\n\nRESPONSE WRITING RULES:\n- Always address the customer by name (use 'you' if no name given)\n- Acknowledge their specific experience — do NOT use generic phrases\n- For negative: apologize sincerely, explain what you will do, offer resolution path\n- For positive: thank genuinely, mention specific detail they praised, invite them to share\n- Keep responses between 60-120 words\n- Professional but warm tone — never defensive, never scripted-sounding\n- Do NOT mention specific dollar amounts, timelines, or make promises you can't guarantee\n- End negative responses with a specific next step (e.g., \"Please email support@yourcompany.com referencing this review\")\n\nescalate=true ONLY when: threats of legal action, mentions of public media, extremely abusive language, safety concerns, data breach mentions."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        -240
+      ],
+      "id": "3d649be1-50f9-4ba5-b9e9-e5d6ae53a3af",
+      "name": "AI Analysis — Sentiment + Urgency + Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const raw = item.json.choices?.[0]?.message?.content || '{}';\n  \n  let aiData = {};\n  try {\n    // Strip markdown code fences if model wraps in ```json```\n    const clean = raw.replace(/```json|```/g, '').trim();\n    aiData = JSON.parse(clean);\n  } catch(e) {\n    // Fallback: extract fields with regex if JSON is malformed\n    aiData = {\n      sentiment: (raw.match(/\"sentiment\"\\s*:\\s*\"(\\w+)\"/) || [])[1] || 'neutral',\n      rating:    parseInt((raw.match(/\"rating\"\\s*:\\s*(\\d)/) || [])[1]) || 3,\n      urgency:   (raw.match(/\"urgency\"\\s*:\\s*\"(\\w+)\"/) || [])[1] || 'low',\n      tags:      [],\n      response:  ''\n    };\n  }\n  \n  return {\n    json: {\n      ...item.json,          // pass through all original review fields\n      sentiment:    aiData.sentiment || 'neutral',\n      ai_rating:    aiData.rating || 3,\n      urgency:      aiData.urgency || 'low',\n      tags:         aiData.tags || [],\n      ai_response:  aiData.response || '',\n      processed:    true,\n      processed_at: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -240
+      ],
+      "id": "7dbe7a5f-e003-45b5-a714-0b0990f7f6eb",
+      "name": "Parse AI JSON Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9521dade-7f18-4cea-90f4-ab24da78b80d",
+                    "leftValue": "={{ $json.output.urgency }}",
+                    "rightValue": "high",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1e80a67e-4830-4d5a-a0e0-d9bb61bdc254",
+                    "leftValue": "={{ $json.output.sentiment }}",
+                    "rightValue": "negative",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d06d9a7c-62bc-4ac4-bc7d-0d1f74a67ff7",
+                    "leftValue": "={{ $json.output.sentiment }}",
+                    "rightValue": "positive",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "70f4da1b-d65f-42d8-832f-6ec13cafbf7d",
+                    "leftValue": "={{ $json.output.sentiment }}",
+                    "rightValue": "neutral",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -48,
+        32
+      ],
+      "id": "b3c3e9e2-c8b5-414f-b7a0-7d018b01064c",
+      "name": "Route by Sentiment & Urgency",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=🚨 *Urgent Review Alert* \n*Platform:* {{ $('If').item.json.platform }}\n*Rating:* ⭐ {{ $('If').item.json.rating }}/5 \n*Urgency:* {{$json.urgency}}\n*Review:* {{ $('AI Analysis — Sentiment + Urgency + Response').item.json.output.response }}\n*Suggested Response:* _{{$json.ai_response}}_\n🔗 View Review: {{ $('If').item.json.url }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        16
+      ],
+      "id": "ad406067-f028-4735-88d9-20dd95277ebd",
+      "name": "Send Slack Alert (Negative/Urgent Reviews) Slack",
+      "webhookId": "b0bc5133-d490-43e4-a9a3-ab2d965df225",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI",
+          "mode": "list",
+          "cachedResultName": "AI Product Review Aggregation & Auto-Response Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 812358852,
+          "mode": "list",
+          "cachedResultName": "Response_Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit#gid=812358852"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('If').item.json.review_id }}",
+            "platform": "={{ $('If').item.json.platform }}",
+            " author": "={{ $('If').item.json.author }}",
+            "body_truncated": "={{ $('If').item.json.body_truncated }}",
+            " ai_response": "={{ $('Parse AI JSON Response').item.json.output.response }}",
+            "status": "pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "platform",
+              "displayName": "platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " author",
+              "displayName": " author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "body_truncated",
+              "displayName": "body_truncated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " ai_response",
+              "displayName": " ai_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        464,
+        112
+      ],
+      "id": "a859e8cb-484d-4d66-b7d8-08d2473ab364",
+      "name": "Queue Negative Review Response (Non-Urgent)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI",
+          "mode": "list",
+          "cachedResultName": "AI Product Review Aggregation & Auto-Response Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1123804597,
+          "mode": "list",
+          "cachedResultName": "Positive_Reviews_Bank",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit#gid=1123804597"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('If').item.json.review_id }}",
+            "platform": "={{ $('If').item.json.platform }}",
+            "author": "={{ $('If').item.json.author }}",
+            "rating": "={{ $('If').item.json.rating }}",
+            "title": "={{ $('If').item.json.title }}",
+            "body": "={{ $('If').item.json.body }}",
+            "date": "={{ $('If').item.json.date }}",
+            "url": "={{ $('If').item.json.url }}",
+            "tags": "={{ $('If').item.json.ai_response }}\n\n{{ $('If').item.json.processed }}",
+            "approved": "false"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "platform",
+              "displayName": "platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "approved",
+              "displayName": "approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        704,
+        208
+      ],
+      "id": "cc4ee3ad-bbad-4cf9-92fb-6b1a4ceba462",
+      "name": "Repurpose Positive Reviews",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI",
+          "mode": "list",
+          "cachedResultName": "AI Product Review Aggregation & Auto-Response Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 444736805,
+          "mode": "list",
+          "cachedResultName": "Reviews_Master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit#gid=444736805"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('If').item.json.review_id }}",
+            "platform": "={{ $('If').item.json.platform }}",
+            " author": "={{ $('If').item.json.author }}",
+            "rating": "={{ $('If').item.json.rating }}",
+            "title": "={{ $('If').item.json.title }}",
+            "body_truncated": "={{ $('If').item.json.body_truncated }}",
+            "date": "={{ $('If').item.json.date }}",
+            "sentiment": "={{ $('Parse AI JSON Response').item.json.output.sentiment }}",
+            "ai_rating": "={{ $('Parse AI JSON Response').item.json.output.rating }}",
+            "urgency": "={{ $('Parse AI JSON Response').item.json.output.urgency }}",
+            "processed_at": "={{ $('Parse AI JSON Response').item.json.processed_at }}",
+            "ai_response": "={{ $('Parse AI JSON Response').item.json.output.response }}",
+            "tags": "={{ $('Parse AI JSON Response').item.json.output.tags[0] }}\n{{ $('Parse AI JSON Response').item.json.output.tags[1] }}\n",
+            "url": "={{ $('If').item.json.url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "platform",
+              "displayName": "platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": " author",
+              "displayName": " author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "body_truncated",
+              "displayName": "body_truncated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_rating",
+              "displayName": "ai_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_response",
+              "displayName": "ai_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        928,
+        112
+      ],
+      "id": "62917372-62e5-4563-af91-c5ba95e44307",
+      "name": "Save All Reviews to Master Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI",
+          "mode": "list",
+          "cachedResultName": "AI Product Review Aggregation & Auto-Response Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Processed_IDs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19Pb64DbxOGELoJCJc3okf_KL0GiLqKIunW6dNgwCLTI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $json.review_id }}"
+          },
+          "matchingColumns": [
+            "review_id"
+          ],
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1136,
+        112
+      ],
+      "id": "40778184-fe7d-4513-a90c-b5ac123c302d",
+      "name": "Log Review ID (Prevent Future Duplicates)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "AI Analysis — Sentiment + Urgency + Response": [
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 3,
+            "urgency": "medium",
+            "tags": [
+              "general",
+              "ux"
+            ],
+            "issue_category": "general",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts. You mentioned a 3-star experience, which suggests there's room for improvement. Can you please provide more details about what you liked and what didn't quite meet your expectations? This will help us better understand your experience and identify areas for growth."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "feature-request"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your wonderful review! We're thrilled to hear that our app helps you enjoy music and brings a smile to your face. We appreciate your enthusiasm and are glad you're getting the most out of our app. If you have any other favorite features or suggestions, we'd love to hear them!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "music"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiasm about our app! We're thrilled to hear it's the best for music. Would you like to share more about your favorite features?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "medium",
+            "tags": [
+              "support",
+              "pricing",
+              "ads"
+            ],
+            "issue_category": "pricing",
+            "escalate": false,
+            "response": "You mentioned that you're seeing ads even after paying. I apologize for the confusion. Can you please email support@yourcompany.com referencing this review so we can help clarify our pricing and ad policies?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you so much for your enthusiastic review! We're thrilled that you're loving our app. If you have any other feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 4,
+            "urgency": "medium",
+            "tags": [
+              "feature-request",
+              "ux",
+              "support"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for your feedback on our app. We appreciate your loyalty to Spotify and understand your desire for easier access to listening options like EQ. We're taking your suggestions into consideration as we continue to improve our player experience. Please email support@spotify.com referencing this review for further discussion."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for enjoying Spotify! We're glad to hear that our app is playing all your favorite songs. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature-request"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiasm! We're glad you're enjoying BTS content on our platform. You can find more features like presave by exploring our app."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 4,
+            "urgency": "medium",
+            "tags": [
+              "pricing",
+              "ads",
+              "accessibility"
+            ],
+            "issue_category": "pricing",
+            "escalate": false,
+            "response": "Thank you for sharing your concerns about our app's pricing and ad experience. We understand that access to YouTube may be limited for some users, and we appreciate your desire for a free and ad-free experience. While we can't make everything free, we're exploring options to reduce ads and offer more affordable plans. Please email support@yourcompany.com referencing this review to discuss further."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for loving our app! We're thrilled that you listen every day. If you have any favorite features or want to share more about your experience, we'd love to hear it!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "feature-request",
+              "ux",
+              "praise"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for loving DJ X! We appreciate your feedback about personalization options. You can currently enjoy mixes and songs, and we're considering your suggestion to add a feature to turn off the song fade function. Please stay tuned for future updates. If you have more ideas, feel free to share them with us."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your review! We're glad you've found our app to be the best for your music needs. We appreciate your understanding about the ads and hope you enjoy exploring our vast music library, including slowed, fast, and remixed versions of your favorite songs."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 4,
+            "urgency": "low",
+            "tags": [
+              "feature-request",
+              "pricing",
+              "praise"
+            ],
+            "issue_category": "pricing",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts on Spotify. We appreciate your honesty. You're right, Spotify Premium offers additional features that enhance the user experience. If you're interested in exploring Premium, you can find more information on our website. Your feedback helps us improve."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "medium",
+            "tags": [
+              "support",
+              "pricing",
+              "praise"
+            ],
+            "issue_category": "general",
+            "escalate": false,
+            "response": "You feel strongly about the companies we support and are frustrated with our pricing. We apologize for disappointing you. We value your loyalty and would like to make things right. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "critical",
+            "tags": [
+              "bug",
+              "performance",
+              "support"
+            ],
+            "issue_category": "bug",
+            "escalate": true,
+            "response": "We're sorry to hear that you're experiencing audio issues with our app. This is frustrating, especially when it happens across multiple devices. We'll investigate this issue. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "medium",
+            "tags": [
+              "ads",
+              "ux",
+              "support"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Sorry to hear that you're frustrated with the number of ads in our app. We understand that it can be annoying. We're working to optimize our ad placement to improve your experience. Please email support@yourcompany.com referencing this review to help us prioritize your feedback."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "medium",
+            "tags": [
+              "ux",
+              "feature-request",
+              "update-issue"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Sorry to hear that the new update is making it hard for you to skim through playlists on your iPad. We understand that this feature is important to you. Can you please email support@yourcompany.com referencing this review so we can look into this further and find a solution for you?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "high",
+            "tags": [
+              "ux",
+              "billing",
+              "praise"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Sorry to hear that our app's changes haven't met your expectations. We understand why you'd miss Konton Boogie and apologize if the new AI-generated content hasn't been to your taste. Regarding the ads, we offer a premium option to minimize interruptions. We value your feedback and would love to hear more about your concerns. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "reliability"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiasm! We're glad you've found our app to be awesome and reliable. If you have any other feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 3,
+            "urgency": "medium",
+            "tags": [
+              "support",
+              "praise",
+              "feature-request"
+            ],
+            "issue_category": "general",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts about our app. We appreciate that you've found it useful for music discovery. We understand your concerns about artist compensation and take them seriously. We're committed to supporting creators and exploring ways to improve our practices. If you'd like to discuss further, please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "high",
+            "tags": [
+              "ux",
+              "praise",
+              "support"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Sorry to hear that you're having a bad experience with our app. We understand that it's not meeting your expectations. Can you please email support@yourcompany.com referencing this review so we can look into this further and find a resolution for you?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "medium",
+            "tags": [
+              "ads",
+              "ux",
+              "feature-request"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Thank you for sharing your concerns about the ads experience. We apologize for the frustration caused by multiple and lengthy ads. We're taking feedback to improve ad quality and user experience. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your review! We're glad you're enjoying the app and appreciate being able to pick your favorite songs without extra cost. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "general"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your kind words! We're glad you're enjoying the app. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you so much for your kind words! We're thrilled you love the music on our platform. If you have any favorite artists or songs, feel free to share with us!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 3,
+            "urgency": "medium",
+            "tags": [
+              "pricing",
+              "feature-request",
+              "competitor-mention"
+            ],
+            "issue_category": "pricing",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts about our recent price update. We understand that the change to $19 may be a bit of a shock, especially after enjoying the student-friendly pricing. We appreciate your loyalty and value your business. If you're considering switching, we'd love to discuss options that might work better for you. Please email support@spotify.com referencing this review to explore alternatives."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 3,
+            "urgency": "medium",
+            "tags": [
+              "ads",
+              "feature-request",
+              "ux"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts on Spotify. We appreciate your love for our music selection and sound quality. However, we understand your frustration with the ads and their content. We'd like to remind you that Spotify Premium offers an ad-free experience. If you're interested in exploring this option, please visit our website for more information. Your feedback helps us improve our service."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "ux",
+              "praise",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your kind words! We're glad to hear that you're finding our app user-friendly and enjoying creating playlists. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "feature-request",
+              "ux"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for your feedback! We appreciate your suggestion to add an 'Add to Album' button for creating playlists. You can currently create playlists by adding songs to a new or existing album. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "neutral",
+            "rating": 3,
+            "urgency": "medium",
+            "tags": [
+              "feature-request",
+              "advertising"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for your feedback! We appreciate your thoughts on reducing ads in our app. We will consider your suggestion and explore ways to improve your experience. If you have any more feedback, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for enjoying Spotify! We're glad you're having a great experience with our music app. If you have any other favorite features or artists, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature-request",
+              "pricing"
+            ],
+            "issue_category": "pricing",
+            "escalate": false,
+            "response": "Thank you for loving Spotify! We're glad you find it easy to discover concerts, merch, and music. We hear your concern about premium payments and will consider your feedback. Can you share more about what you'd like to see in terms of payment options?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "feature-request",
+              "ux"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for your amazing review! We appreciate your feedback about the shuffle feature. We're always working to improve the app, and we'll definitely consider your suggestion. If you have any more thoughts or ideas, feel free to share them with us!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 4,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for enjoying the playlist feature! We're glad you're finding it chill. Would you like to share more about your favorite playlists or artists?"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 4,
+            "urgency": "medium",
+            "tags": [
+              "algorithm",
+              "feature-request",
+              "ux"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts on our algorithm. We understand that our current approach may not cater to diverse musical tastes. We're constantly working to improve our recommendations. If you'd like to help us better understand your preferences, please email support@spotify.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for loving Spotify! We're glad our songs can bring a smile to your face, especially when listening with your mom. Keep enjoying the music that makes you happy!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your kind words about Spotify's journey! We're thrilled to have been a part of your music evolution, from helping you move away from pirating to embracing a world of quality sounds. Your support since 2012 has meant a lot to us. We'd love to hear more about your favorite Spotify experiences - feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature-request",
+              "advertising"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you so much for your kind words about our app! We're thrilled you enjoy it. Sorry to hear about the ad experience - we appreciate your feedback and will consider it for future updates. If you have more thoughts, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "general"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiasm! We're glad you've found our app easy to use and effective. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for enjoying our music platform! We're glad you appreciate the variety of options available. If you have any favorite artists or genres, feel free to share with us!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "reliability"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for enjoying Spotify! We're glad you find our free songs to be of good quality and that it works well for both parties and relaxation. If you have any other feedback or need help, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 4,
+            "urgency": "medium",
+            "tags": [
+              "bug",
+              "ux",
+              "feature-request"
+            ],
+            "issue_category": "bug",
+            "escalate": false,
+            "response": "Thank you for sharing your feedback about the podcast section. I apologize for the frustration caused by the glitchy experience. You're right, it can be annoying when the app doesn't work as expected. I'm going to share this with our team so we can look into improving the stability of the podcast section. Please email support@yourcompany.com referencing this review if the issue persists."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 1,
+            "urgency": "high",
+            "tags": [
+              "support",
+              "ux"
+            ],
+            "issue_category": "ux",
+            "escalate": false,
+            "response": "Sorry to hear that you're having trouble listening to music. Can you please try restarting the app or checking your account settings to see if there are any age restrictions applied? If the issue persists, please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "feature"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your kind words! We're thrilled that you find our app easy to use and that it's helping you find the lyrics you need. If you have any other feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "music"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiasm! We're glad you're enjoying listening to BTS music with our app. If you have any other favorite artists or genres, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "general"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your kind words about Herbal! We're glad you're enjoying the app. If you have any more feedback or suggestions, feel free to share!"
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "ux",
+              "reliability"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you so much for your love for Spotify! We're thrilled to hear that you can't go a day without using it and that it seamlessly integrates with your devices. Your enthusiasm means the world to us! If you ever have any questions or need assistance, feel free to reach out."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "negative",
+            "rating": 5,
+            "urgency": "medium",
+            "tags": [
+              "feature-request",
+              "pricing",
+              "ux"
+            ],
+            "issue_category": "feature",
+            "escalate": false,
+            "response": "Thank you for sharing your thoughts on our app. You mentioned that you would prefer fewer ads, especially given your current financial situation. We understand that ads can be a concern for many users. While we can't eliminate ads entirely, we can consider ways to make our ad experience more tolerable for users on a budget. Please email support@yourcompany.com referencing this review."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise",
+              "general"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your enthusiastic review! We're glad you're happy with our app. If you have any other feedback or would like to share more about your experience, we'd love to hear it."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "sentiment": "positive",
+            "rating": 5,
+            "urgency": "low",
+            "tags": [
+              "praise"
+            ],
+            "issue_category": "praise",
+            "escalate": false,
+            "response": "Thank you for your wonderful review! We're thrilled to hear you're enjoying Spotify. If you have any other favorite features or artists, feel free to share with us!"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google Play Store Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Apple App Store Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google Play Store Reviews": {
+      "main": [
+        [
+          {
+            "node": "Parse Play Store HTML → JSON Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Apple App Store Reviews": {
+      "main": [
+        [
+          {
+            "node": "Parse App Store JSON → Normalized Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Play Store HTML → JSON Array": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse App Store JSON → Normalized Array": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Clean All Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Clean All Reviews": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Analysis — Sentiment + Urgency + Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Analysis — Sentiment + Urgency + Response",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Analysis — Sentiment + Urgency + Response",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analysis — Sentiment + Urgency + Response": {
+      "main": [
+        [
+          {
+            "node": "Parse AI JSON Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI JSON Response": {
+      "main": [
+        [
+          {
+            "node": "Route by Sentiment & Urgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Sentiment & Urgency": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Alert (Negative/Urgent Reviews) Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Queue Negative Review Response (Non-Urgent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Repurpose Positive Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save All Reviews to Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Alert (Negative/Urgent Reviews) Slack": {
+      "main": [
+        [
+          {
+            "node": "Save All Reviews to Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue Negative Review Response (Non-Urgent)": {
+      "main": [
+        [
+          {
+            "node": "Save All Reviews to Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repurpose Positive Reviews": {
+      "main": [
+        [
+          {
+            "node": "Save All Reviews to Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save All Reviews to Master Sheet": {
+      "main": [
+        [
+          {
+            "node": "Log Review ID (Prevent Future Duplicates)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1e55970f-5bc0-4dd8-9e5a-77acb5bd6955",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "GpIDjdwBipnS3ohW",
+  "tags": []
+}

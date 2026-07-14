@@ -1,0 +1,929 @@
+{
+  "name": "AI Feedback Synthesis & Roadmap Prioritiser",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "f0efc9bd-7034-4764-81a9-6c8dbeaf6855",
+      "name": "Weekly Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -752,
+        -16
+      ],
+      "notes": "Fires every Monday 07:00 UTC. All 5 branches run in parallel from here."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c",
+          "mode": "list",
+          "cachedResultName": "AI Customer Feedback Synthesis & Product Roadmap Prioritiser",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "nps_feedback",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit#gid=0"
+        },
+        "combineFilters": "AND",
+        "options": {}
+      },
+      "id": "cacd5c5f-2345-4201-b4f6-437fa6b49762",
+      "name": "Fetch NPS (Google Sheets)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        -368,
+        -352
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Tab: nps_responses. Columns: timestamp, score, comment, email, plan, source, week_tag.\nPopulate via Google Form (see SETUP section) or manual paste."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c",
+          "mode": "list",
+          "cachedResultName": "AI Customer Feedback Synthesis & Product Roadmap Prioritiser",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2143247956,
+          "mode": "list",
+          "cachedResultName": "support_tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit#gid=2143247956"
+        },
+        "combineFilters": "AND",
+        "options": {}
+      },
+      "id": "a0efdb14-91a2-4e12-808c-d2ea5055cdac",
+      "name": "Fetch Support Issues (Google Sheets)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        -368,
+        -144
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "REPLACES FRESHDESK.\nTab: support_issues. Columns: timestamp, issue_title, description, severity (1-5), reported_by, plan.\nUsers/team members fill a Google Form (Support Intake Form) — auto-appends to this tab.\nAlternatively paste copy-pasted support emails here manually each week."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c",
+          "mode": "list",
+          "cachedResultName": "AI Customer Feedback Synthesis & Product Roadmap Prioritiser",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1679537851,
+          "mode": "list",
+          "cachedResultName": "call_notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit#gid=1679537851"
+        },
+        "combineFilters": "AND",
+        "options": {}
+      },
+      "id": "4d84d3ef-8dd1-4908-913a-7bc0a0b7ab6c",
+      "name": "Fetch Call Notes (Google Sheets)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        -368,
+        64
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "REPLACES GMAIL SALES CALL NOTES.\nTab: call_notes. Columns: date, contact_name, plan_type, key_points, pain_mentioned.\nAfter each sales/customer call, paste a brief summary into this tab.\nNo email labels, no Gmail API — just a plain sheet. Works for any team size."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c",
+          "mode": "list",
+          "cachedResultName": "AI Customer Feedback Synthesis & Product Roadmap Prioritiser",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1292812068,
+          "mode": "list",
+          "cachedResultName": "community_feedback",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit#gid=1292812068"
+        },
+        "combineFilters": "AND",
+        "options": {}
+      },
+      "id": "47d13003-90c8-45b3-b35b-ea5cc312652a",
+      "name": "Fetch Community Posts (Google Sheets)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        272
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Tab: community. Columns: date, platform, content, author, upvotes.\nPaste in Discord/Slack/Twitter posts manually, or link via Zapier free tier."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── NPS NORMALISER (FIXED) ──\n\nconst items = $input.all();\nif (!items || items.length === 0) return [];\n\nconst weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);\n\nreturn items\n  .filter(item => {\n    const ts = item.json.timestamp;\n    if (!ts) return true;\n    return new Date(ts).getTime() >= weekAgo;\n  })\n  .map(item => {\n    const text = [\n      item.json.feedback_text,\n      item.json.feature_requested\n    ].filter(Boolean).join(' ');\n\n    return {\n      json: {\n        id: 'nps_' + (item.json.email || '').replace(/[^a-z0-9]/gi,'') + '_' + Date.now(),\n        source: 'nps',\n        text: text.trim(),\n        score: parseFloat(item.json.nps_score) || null,\n        date: item.json.timestamp || new Date().toISOString(),\n        user_plan: item.json.plan || 'unknown'\n      }\n    };\n  })\n  .filter(i => i.json.text.length > 5); // relaxed filter"
+      },
+      "id": "a6bab36d-577d-49ed-b71f-b8aa91b7743b",
+      "name": "Normalise NPS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── SUPPORT NORMALISER (FIXED) ──\n\nconst items = $input.all();\nif (!items || items.length === 0) return [];\n\nconst weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);\n\nreturn items\n  .filter(item => {\n    const ts = item.json.timestamp;\n    if (!ts) return true;\n    return new Date(ts).getTime() >= weekAgo;\n  })\n  .map((item, idx) => {\n    // Clean fields (trim keys + values)\n    const issueType = (item.json[\" issue_type \"] || item.json.issue_type || \"\").trim();\n    const desc = (item.json.issue_description || \"\").trim();\n    const priority = (item.json.priority || \"\").trim().toLowerCase();\n\n    const text = [issueType, desc].filter(Boolean).join('. ').trim();\n\n    // Convert priority → severity number\n    let severity = 3;\n    if (priority === \"high\") severity = 1;\n    else if (priority === \"medium\") severity = 3;\n    else if (priority === \"low\") severity = 5;\n\n    return {\n      json: {\n        id: 'support_' + idx + '_' + Date.now(),\n        source: 'support',\n        text,\n        score: Math.max(1, 10 - (severity * 2)),\n        date: item.json.timestamp || new Date().toISOString(),\n        user_plan: 'unknown'\n      }\n    };\n  })\n  .filter(i => i.json.text.length > 5);"
+      },
+      "id": "dd4f09d9-a94d-4648-92db-34b94827d03b",
+      "name": "Normalise Support Issues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── CALL NOTES NORMALISER (FIXED) ──\n\nconst items = $input.all();\nif (!items || items.length === 0) return [];\n\nconst weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);\n\nreturn items\n  .filter(item => {\n    const d = item.json.date;\n    if (!d) return true;\n    return new Date(d).getTime() >= weekAgo;\n  })\n  .map((item, idx) => {\n    // Handle dirty keys + trim values\n    const pain = (item.json[\"pain_mentioned \"] || item.json.pain_mentioned || \"\").trim();\n    const feature = (item.json[\"feature_request \"] || item.json.feature_request || \"\").trim();\n\n    const text = [pain, feature].filter(Boolean).join('. ').trim();\n\n    return {\n      json: {\n        id: 'call_' + idx + '_' + Date.now(),\n        source: 'call',\n        text,\n        score: null, // keep null, handled later\n        date: item.json.date || new Date().toISOString(),\n        user_plan: 'unknown',\n        weight: 4 // 🔥 VERY IMPORTANT (high signal)\n      }\n    };\n  })\n  .filter(i => i.json.text.length > 5);"
+      },
+      "id": "7c7ed33a-29be-4f1b-9ae6-fdca61c073a5",
+      "name": "Normalise Call Notes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── COMMUNITY NORMALISER (FIXED) ──\n\nconst items = $input.all();\nif (!items || items.length === 0) return [];\n\nconst weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);\n\nreturn items\n  .filter(item => {\n    const d = item.json.date;\n    if (!d) return true;\n    return new Date(d).getTime() >= weekAgo;\n  })\n  .map((item, idx) => {\n    // Handle dirty keys + trim values\n    const message = (item.json[\"message \"] || item.json.message || \"\").trim();\n    const platform = (item.json[\" platform \"] || item.json.platform || \"unknown\").trim();\n\n    // Basic sentiment hint (light heuristic)\n    let sentiment = \"neutral\";\n    const lower = message.toLowerCase();\n    if (lower.includes(\"bug\") || lower.includes(\"confusing\") || lower.includes(\"issue\")) {\n      sentiment = \"negative\";\n    } else if (lower.includes(\"love\") || lower.includes(\"amazing\")) {\n      sentiment = \"positive\";\n    }\n\n    return {\n      json: {\n        id: 'community_' + idx + '_' + Date.now(),\n        source: 'community',\n        text: message,\n        score: null,\n        sentiment_hint: sentiment,\n        date: item.json.date || new Date().toISOString(),\n        user_plan: 'unknown',\n        platform,\n        weight: 2 // medium signal\n      }\n    };\n  })\n  .filter(i => i.json.text.length > 5);"
+      },
+      "id": "9779e64d-9eae-4657-8c40-581f4008170d",
+      "name": "Normalise Community",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        272
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f97eb90b-75b0-4e2b-ba0e-95900672ae4a",
+      "name": "Merge NPS + Support",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        112,
+        -240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "8e1aaba0-b2a2-4efe-8328-1abf3cd8287b",
+      "name": "Merge + Call Notes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        96,
+        80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "16c6bb85-8734-467e-92f7-536bcc2d247f",
+      "name": "Merge All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        96,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── DEDUPLICATOR + CAP ──\n// Hash-deduplicates by source+text prefix\n// Stratified cap: pain signals (score ≤ 4) preserved, rest sampled up to 500\n\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of $input.all()) {\n  const text = String(item.json.text || '').trim().toLowerCase();\n  // Key = source + first 80 chars of text\n  const key = (item.json.source || 'unk') + '|' + text.substring(0, 80);\n  if (!seen.has(key) && text.length > 10) {\n    seen.add(key);\n    unique.push(item);\n  }\n}\n\n// Stratified sampling: keep all pain signals first\nconst pain   = unique.filter(i => i.json.score !== null && i.json.score <= 4);\nconst others = unique.filter(i => i.json.score === null || i.json.score > 4);\nconst capped = [...pain, ...others].slice(0, 500);\n\n// Source breakdown for context\nconst sourceCounts = {};\ncapped.forEach(i => {\n  sourceCounts[i.json.source] = (sourceCounts[i.json.source] || 0) + 1;\n});\n\n// Build week label\nconst weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);\nconst fmt = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' });\nconst weekLabel = fmt(weekStart) + ' – ' + fmt(new Date()) + ', ' + new Date().getFullYear();\n\nreturn [{ json: {\n  items: capped.map(i => ({\n    source:    i.json.source,\n    text:      i.json.text,\n    score:     i.json.score,\n    user_plan: i.json.user_plan\n  })),\n  meta: {\n    total_raw:   $input.all().length,\n    after_dedup: unique.length,\n    sent_to_ai:  capped.length,\n    week:        weekLabel,\n    by_source:   sourceCounts\n  }\n}}];"
+      },
+      "id": "9bd67f54-9fc6-4c0d-8ec6-b8fd042ff0e6",
+      "name": "Deduplicate + Cap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.meta.sent_to_ai }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23b0dfc5-6fac-4fed-b5a5-6c16d85264f9",
+      "name": "IF: Has Feedback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -304
+      ],
+      "notes": "TRUE → continue to AI. FALSE → notify Slack and stop cleanly."
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=ℹ️ *Feedback Digest — {{ $json.meta.week }}*\n\nNo feedback was collected this week across all 5 sources. Nothing sent to AI.\n\n_Sources checked: NPS sheet, Support sheet, Reddit mentions, Call notes, Community sheet._",
+        "otherOptions": {}
+      },
+      "id": "38d493b6-ecc9-45c6-8472-cd5d5675a22c",
+      "name": "Slack: No Data This Week",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        -288
+      ],
+      "webhookId": "5253ec11-aa33-4fd1-b2d5-e84ff531ce33",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── AI RESPONSE PARSER (ROBUST FIX) ──\n\nconst input = $input.first().json;\n\nlet raw = '';\n\n// ─────────────────────────────\n// STEP 1: Extract raw response\n// ─────────────────────────────\n\n// Case 1: OpenRouter standard\nif (input.choices && input.choices[0]?.message?.content) {\n  raw = input.choices[0].message.content;\n}\n\n// Case 2: Your current input (output field)\nelse if (input.output) {\n  raw = input.output;\n}\n\n// Case 3: fallback (stringified object)\nelse if (typeof input === 'string') {\n  raw = input;\n}\n\n// Case 4: unknown structure\nelse {\n  raw = JSON.stringify(input);\n}\n\nraw = String(raw).trim();\n\nlet parsed;\n\n// ─────────────────────────────\n// STEP 2: Parse JSON safely\n// ─────────────────────────────\n\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n\n  // Try markdown block ```json ... ```\n  const jsonBlock = raw.match(/```json\\s*([\\s\\S]+?)\\s*```/);\n  if (jsonBlock) {\n    try { parsed = JSON.parse(jsonBlock[1]); } catch(_) {}\n  }\n\n  // Try extracting first {...}\n  if (!parsed) {\n    const objBlock = raw.match(/(\\{[\\s\\S]+\\})/);\n    if (objBlock) {\n      try { parsed = JSON.parse(objBlock[1]); } catch(_) {}\n    }\n  }\n\n  if (!parsed) {\n    throw new Error('[Parse Error] Cannot extract JSON from AI response: ' + raw.slice(0, 300));\n  }\n}\n\n// ─────────────────────────────\n// STEP 3: Validate structure\n// ─────────────────────────────\n\nif (!parsed.themes || !Array.isArray(parsed.themes)) {\n  throw new Error('[Validation Error] Missing themes array');\n}\n\n// ─────────────────────────────\n// STEP 4: Get metadata safely\n// ─────────────────────────────\n\nlet meta;\ntry {\n  meta = $('Deduplicate + Cap').first().json.meta;\n} catch(e) {\n  meta = { sent_to_ai: 100, week: 'unknown', by_source: {} };\n}\n\nconst maxFreq = meta.sent_to_ai || 1;\n\n// ─────────────────────────────\n// STEP 5: Sanitize themes\n// ─────────────────────────────\n\nconst themes = parsed.themes.map((t, i) => {\n\n  const freq = Math.max(0, Math.min(parseInt(t.frequency) || 0, maxFreq));\n  const sentiment = Math.max(-1, Math.min(parseFloat(t.sentiment_score) || 0, 1));\n  const impact = Math.max(0, Math.min(parseFloat(t.impact_score) || 0, 10));\n\n  return {\n    theme: String(t.theme || 'Unknown Theme').trim(),\n    frequency: freq,\n    sentiment_score: sentiment,\n    impact_score: impact,\n    priority_rank: parseInt(t.priority_rank) || (i + 1),\n    suggested_feature: String(t.suggested_feature || '').trim(),\n    sample_quotes: Array.isArray(t.sample_quotes)\n      ? t.sample_quotes.slice(0, 3).map(q => String(q).trim())\n      : [],\n    sources: Array.isArray(t.sources)\n      ? t.sources.map(s => String(s).trim())\n      : []\n  };\n});\n\n// ─────────────────────────────\n// STEP 6: Return clean output\n// ─────────────────────────────\n\nreturn [{\n  json: {\n    themes,\n    summary: String(parsed.summary || '').trim(),\n    meta\n  }\n}];"
+      },
+      "id": "0de3bcaa-347f-4f2c-b2ae-7b63fa6ffbc0",
+      "name": "Parse & Validate AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── IMPACT SCORER & RANKER (REFINED) ──\n\nconst input = $input.first().json || {};\nconst themes = Array.isArray(input.themes) ? input.themes : [];\nconst summary = input.summary || '';\nconst meta = input.meta || { sent_to_ai: 1 };\n\nconst total = meta.sent_to_ai || 1;\n\n// ─────────────────────────────\n// STEP 1: Score each theme safely\n// ─────────────────────────────\n\nconst scored = themes.map((t, idx) => {\n\n  const frequency = Math.max(0, parseInt(t.frequency) || 0);\n  const sentiment = Math.max(-1, Math.min(parseFloat(t.sentiment_score) || 0, 1));\n  const impact = Math.max(0, Math.min(parseFloat(t.impact_score) || 0, 10));\n\n  const freqRatio  = Math.min(frequency / total, 1);\n  const urgency    = (1 - sentiment) / 2;\n  const impactNorm = impact / 10;\n\n  const compositeRaw =\n    (freqRatio  * 0.40) +\n    (impactNorm * 0.35) +\n    (urgency    * 0.25);\n\n  // Keep raw + rounded\n  const composite = Math.round(compositeRaw * 100);\n\n  // Sentiment display\n  let sentLabel = 'Mixed';\n  let sentEmoji = '🟡';\n\n  if (sentiment > 0.3) {\n    sentLabel = 'Positive';\n    sentEmoji = '🟢';\n  } else if (sentiment < -0.3) {\n    sentLabel = 'Negative';\n    sentEmoji = '🔴';\n  }\n\n  return {\n    ...t,\n    frequency,\n    sentiment_score: sentiment,\n    impact_score: impact,\n    composite_score: composite,\n    composite_raw: parseFloat(compositeRaw.toFixed(4)), // useful for debugging\n    freq_ratio: parseFloat(freqRatio.toFixed(3)),\n    urgency: parseFloat(urgency.toFixed(3)),\n    sent_label: sentLabel,\n    sent_emoji: sentEmoji,\n    _original_index: idx // for stable sorting\n  };\n});\n\n// ─────────────────────────────\n// STEP 2: Sort safely (no mutation)\n// ─────────────────────────────\n\nconst ranked = [...scored]\n  .sort((a, b) => {\n    // Primary: composite\n    if (b.composite_score !== a.composite_score) {\n      return b.composite_score - a.composite_score;\n    }\n\n    // Secondary: impact\n    if (b.impact_score !== a.impact_score) {\n      return b.impact_score - a.impact_score;\n    }\n\n    // Tertiary: frequency\n    if (b.frequency !== a.frequency) {\n      return b.frequency - a.frequency;\n    }\n\n    // Final: stable fallback\n    return a._original_index - b._original_index;\n  });\n\n// ─────────────────────────────\n// STEP 3: Take top 10\n// ─────────────────────────────\n\nconst top10 = ranked.slice(0, 10).map((t, i) => ({\n  ...t,\n  final_rank: i + 1\n}));\n\n// ─────────────────────────────\n// STEP 4: Clean output\n// ─────────────────────────────\n\nreturn [{\n  json: {\n    top10,\n    summary: String(summary).trim(),\n    meta\n  }\n}];"
+      },
+      "id": "eb3b33fa-f551-435f-8f6d-18d7805111f5",
+      "name": "Impact Scorer & Ranker",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── SLACK MESSAGE FORMATTER (REFINED) ──\n\nconst input = $input.first().json || {};\n\nconst top10 = Array.isArray(input.top10) ? input.top10 : [];\nconst summary = String(input.summary || '').trim();\nconst meta = input.meta || {};\n\nconst rankEmoji = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];\n\nconst sourceMap = {\n  nps:       '📋 NPS',\n  support:   '🎫 Support',\n  reviews:   '🔴 Reddit',\n  sales:     '📞 Calls',\n  community: '💬 Community'\n};\n\n// ─────────────────────────────\n// Build theme lines safely\n// ─────────────────────────────\n\nconst lines = top10.map((t, i) => {\n\n  const sources = Array.isArray(t.sources) ? t.sources : [];\n  const src = sources.length\n    ? sources.map(s => sourceMap[s] || s).join(', ')\n    : 'Unknown';\n\n  const feature = t.suggested_feature || 'No suggestion';\n\n  const quoteRaw = (t.sample_quotes && t.sample_quotes[0]) || '';\n  const quote = quoteRaw\n    ? `\\n   _\"${quoteRaw.length > 100 ? quoteRaw.slice(0,100) + '...' : quoteRaw}\"_`\n    : '';\n\n  const emoji = t.sent_emoji || '🟡';\n  const label = t.sent_label || 'Mixed';\n\n  return (\n    `${rankEmoji[i] || `${i+1}.`} *${t.theme || 'Unknown Theme'}*\\n` +\n    `   Score: \\`${t.composite_score || 0}/100\\` | ${emoji} ${label}\\n` +\n    `   Freq: ${t.frequency || 0} | ${src}\\n` +\n    `   ➡ _${feature}_` +\n    quote\n  );\n\n}).join('\\n\\n');\n\n// ─────────────────────────────\n// Source breakdown\n// ─────────────────────────────\n\nconst bySource = Object.entries(meta.by_source || {})\n  .map(([s, n]) => `${sourceMap[s] || s}: ${n}`)\n  .join('  |  ');\n\n// ─────────────────────────────\n// Safe meta values\n// ─────────────────────────────\n\nconst totalRaw = meta.total_raw ?? '-';\nconst afterDedup = meta.after_dedup ?? '-';\nconst sentToAI = meta.sent_to_ai ?? '-';\nconst week = meta.week || 'Current Week';\n\n// ─────────────────────────────\n// Final message\n// ─────────────────────────────\n\nconst message =\n  `:bar_chart: *Weekly Feedback Digest — ${week}*\\n` +\n  `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n` +\n  `*${totalRaw}* raw → *${afterDedup}* unique → *${sentToAI}* analysed\\n` +\n  (bySource ? `${bySource}\\n\\n` : '\\n') +\n  `:speech_balloon: *AI Summary*\\n${summary || 'No summary available'}\\n\\n` +\n  `:pushpin: *Top ${top10.length} Prioritised Feature Requests*\\n` +\n  `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n` +\n  `${lines || '_No themes detected_'}\\n\\n` +\n  `_Powered by n8n + Llama-3.3-70B · ${new Date().toLocaleDateString()}_`;\n\n// ─────────────────────────────\n// Output\n// ─────────────────────────────\n\nreturn [{\n  json: {\n    message,\n    top10,\n    meta,\n    summary\n  }\n}];"
+      },
+      "id": "199edb81-1e4c-44e0-8063-274f95bf140a",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "4eaf7b37-7a72-477b-95aa-c73d1376f52b",
+      "name": "Send Slack Digest",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        -192
+      ],
+      "webhookId": "3de5a60f-bdfe-484b-bb54-0cb84f892d52",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "top10",
+        "options": {}
+      },
+      "id": "ce79798e-81f6-4497-b882-8537f1dca707",
+      "name": "Split Top10 for Sheets Loop",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c",
+          "mode": "list",
+          "cachedResultName": "AI Customer Feedback Synthesis & Product Roadmap Prioritiser",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 120873223,
+          "mode": "list",
+          "cachedResultName": "Sheet5",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NCJA8xuZKRIaF4ahOLnyXYqYAbt4jLXVmyaUUMKBb9c/edit#gid=120873223"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "theme": "={{ $json.theme }}",
+            "frequency": "={{ $json.frequency }}",
+            "sentiment_score": "={{ $json.sentiment_score }}",
+            "impact_score": "={{ $json.impact_score }}",
+            "priority_rank": "={{ $json.priority_rank }}",
+            "suggested_feature": "={{ $json.suggested_feature }}",
+            "sample_quote_1": "={{ $json.sample_quotes[0] }}",
+            "sample_quote_2": "={{ $json.sample_quotes[1] }}",
+            "sample_quote_3": "={{ $json.sample_quotes[2] }}",
+            "sources": "={{ $json.sources[0] }}\n{{ $json.sources[1] }}\n{{ $json.sources[2] }}",
+            "composite_score": "={{ $json.composite_score }}",
+            "composite_raw": "={{ $json.composite_raw }}",
+            "freq_ratio": "={{ $json.freq_ratio }}",
+            "urgency": "={{ $json.urgency }}",
+            "sent_label": "={{ $json.sent_label }}",
+            "sent_emoji": "={{ $json.sent_emoji }}",
+            "final_rank": "={{ $json.final_rank }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "theme",
+              "displayName": "theme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "frequency",
+              "displayName": "frequency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sentiment_score",
+              "displayName": "sentiment_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "impact_score",
+              "displayName": "impact_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "priority_rank",
+              "displayName": "priority_rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "suggested_feature",
+              "displayName": "suggested_feature",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sample_quote_1",
+              "displayName": "sample_quote_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sample_quote_2",
+              "displayName": "sample_quote_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sample_quote_3",
+              "displayName": "sample_quote_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sources",
+              "displayName": "sources",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "composite_score",
+              "displayName": "composite_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "composite_raw",
+              "displayName": "composite_raw",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "freq_ratio",
+              "displayName": "freq_ratio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sent_label",
+              "displayName": "sent_label",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sent_emoji",
+              "displayName": "sent_emoji",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "final_rank",
+              "displayName": "final_rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "024520cd-f609-427c-b5dc-acbdb0717e21",
+      "name": "Write to Sheets History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        16
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Week: {{$json.meta.week}}\nTotal items: {{$json.meta.sent_to_ai}}\nSource breakdown: {{ JSON.stringify($json.meta.by_source, null, 2) }}\n\n\nFeedback item: {{ JSON.stringify($json.items, null, 2) }}",
+        "options": {
+          "systemMessage": "=You are a senior product analyst specialising in customer feedback synthesis.\n\nYou will receive a JSON array of feedback items from multiple sources:\n- nps (survey scores and comments)\n- support (support tickets and issues)\n- reviews (Reddit mentions and public posts)\n- sales (notes from customer calls)\n- community (Discord/Slack community posts)\n\nEach item has:\n- source: nps | support | reviews | sales | community\n- text: the raw feedback text\n- score: numeric score if available (null if not)\n- user_plan: customer plan tier (unknown if not available)\n\nYOUR TASK:\n\n1. Read ALL feedback items carefully.\n\n2. Cluster them into 8–12 thematic groups based on the underlying product need or pain point.\n\n3. For each theme compute:\n- frequency: count of items that belong to this theme\n- sentiment_score: float from -1.0 (very negative) to 1.0 (very positive)\n  - Use score where available\n  - Infer from text otherwise\n- impact_score: float from 0–10\n  - Increase impact when:\n    (a) mentioned by paid/pro users\n    (b) appears across 2+ sources\n    (c) mentions churn, revenue loss, or switching tools\n\n4. Suggest ONE concrete, specific feature or fix per theme.\n\n5. Rank themes using:\npriority_score = (0.4 * freq_ratio) + (0.35 * impact/10) + (0.25 * urgency)\n\nWhere:\n- freq_ratio = frequency / total_items\n- urgency = (1 - sentiment_score) / 2\n\n6. Assign priority_rank from 1 (highest priority) to N.\n\n7. Write a 3–5 sentence executive summary highlighting the most critical signals.\n\nRULES:\n\n- Use only the provided input. Do NOT invent data.\n- Frequency cannot exceed total input items.\n- Theme names must be 3–6 words.\n- Prioritise cross-source signals (same issue across multiple channels).\n- Do NOT over-prioritise high-volume but low-impact noise.\n\nOUTPUT FORMAT:\n\nReturn ONLY a valid JSON object (no markdown, no explanation):\n\n{\n  \"themes\": [\n    {\n      \"theme\": \"string\",\n      \"frequency\": integer,\n      \"sentiment_score\": float,\n      \"impact_score\": float,\n      \"priority_rank\": integer,\n      \"suggested_feature\": \"string\",\n      \"sample_quotes\": [\"string\"],\n      \"sources\": [\"string\"]\n    }\n  ],\n  \"summary\": \"string\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        336,
+        -80
+      ],
+      "id": "53af03b9-79d7-4892-85c2-6da354bc7731",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        336,
+        80
+      ],
+      "id": "f3c3d6b5-6bb3-4985-9c28-cc6ee2a58189",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Weekly Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch NPS (Google Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Support Issues (Google Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Call Notes (Google Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Community Posts (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NPS (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Normalise NPS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Support Issues (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Normalise Support Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Call Notes (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Normalise Call Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Community Posts (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Normalise Community",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise NPS": {
+      "main": [
+        [
+          {
+            "node": "Merge NPS + Support",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise Support Issues": {
+      "main": [
+        [
+          {
+            "node": "Merge NPS + Support",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Normalise Call Notes": {
+      "main": [
+        [
+          {
+            "node": "Merge + Call Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise Community": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge NPS + Support": {
+      "main": [
+        [
+          {
+            "node": "Merge + Call Notes",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge + Call Notes": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate + Cap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate + Cap": {
+      "main": [
+        [
+          {
+            "node": "IF: Has Feedback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Has Feedback?": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack: No Data This Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate AI Response": {
+      "main": [
+        [
+          {
+            "node": "Impact Scorer & Ranker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Impact Scorer & Ranker": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Top10 for Sheets Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Top10 for Sheets Loop": {
+      "main": [
+        [
+          {
+            "node": "Write to Sheets History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4fa9506b-70c6-4900-ac56-bed7c47d5430",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "oKC8N4zCWOloHhNE",
+  "tags": []
+}

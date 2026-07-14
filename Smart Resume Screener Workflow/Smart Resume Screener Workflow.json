@@ -1,0 +1,832 @@
+{
+  "name": "Smart Resume Screener Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "CATEGORY_PERSONAL",
+            "INBOX",
+            "UNREAD"
+          ],
+          "q": "has:attachment"
+        },
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment_",
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -400,
+        -144
+      ],
+      "id": "ecdb5493-8c32-4489-a8a5-d667c7f00752",
+      "name": "Gmail Trigger",
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        -240
+      ],
+      "id": "dffdbbaa-99b6-4682-ae87-20461cf69c6f",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "85381047-80dc-4093-b230-e0a9db21a690",
+              "leftValue": "={{$binary.attachment_0.fileExtension}}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "d92c5fe0-b75d-422b-8548-11dc56764f37",
+              "leftValue": "={{$binary.attachment_0.fileExtension}}",
+              "rightValue": "docx",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -208,
+        -144
+      ],
+      "id": "2ab57eb9-3ea0-4208-bf92-dbd697f02285",
+      "name": "Separate pdf and docx"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0",
+        "options": {
+          "keepSource": "binary"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -32,
+        -432
+      ],
+      "id": "2c319227-4897-4d93-b31f-10da0148d00d",
+      "name": "Extract pdf content"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        160,
+        -432
+      ],
+      "id": "e7d4dde0-9d0f-4ec5-9c87-8db2cba8b86e",
+      "name": "Merge mail and pdf content"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allInputs = $input.all();\n\n// Identify Gmail vs Extract nodes\nlet emailData = null;\nlet fileExtract = null;\nlet binaryData = null;\n\nfor (const item of allInputs) {\n  // Extract node always has numpages OR info\n  if (item.json.numpages !== undefined || item.json.info !== undefined) {\n    fileExtract = item.json;\n  } else {\n    emailData = item.json;\n    binaryData = item.binary ?? null;\n  }\n}\n\nif (!emailData) throw new Error('❌ Missing Gmail metadata input');\nif (!fileExtract) throw new Error('❌ Missing Extract From File input');\nif (!binaryData) throw new Error('❌ Missing email binary attachment');\n\n// Extract attachment binaryKey\nconst binaryKey = Object.keys(binaryData)[0];\nconst bin = binaryData[binaryKey];\n\n// Extract sender email cleanly\nlet senderEmail = '';\nlet senderName = '';\nif (emailData.from?.value?.[0]) {\n  senderEmail = emailData.from.value[0].address || '';\n  senderName = emailData.from.value[0].name || '';\n} else {\n  senderEmail = emailData.from?.text || '';\n}\n\n// Clean date-safe\nlet timestamp;\nif (emailData.date && !isNaN(Date.parse(emailData.date))) {\n  timestamp = new Date(emailData.date).toISOString();\n} else {\n  timestamp = new Date().toISOString();\n}\n\nreturn [\n  {\n    json: {\n      // EMAIL FIELDS\n      candidateEmail: senderEmail,\n      candidateName: senderName,\n      emailSubject: emailData.subject || '',\n      emailBody: emailData.text || '',\n      receivedDate: timestamp,\n      messageId: emailData.messageId || '',\n      threadId: emailData.threadId || '',\n      \n      // FILE METADATA\n      fileName: bin.fileName || 'unknown',\n      mimeType: bin.mimeType || '',\n      fileExtension: (bin.fileName || '').split('.').pop(),\n\n      // EXTRACTED RESUME TEXT\n      resumeText: fileExtract.text || '',\n      pages: fileExtract.numpages || 1,\n\n      // INTERNAL META\n      pdfInfo: fileExtract.info || {}\n    },\n    binary: {\n      [binaryKey]: bin\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        -432
+      ],
+      "id": "da3bd441-b2c0-4d44-9859-fcf5cd90b888",
+      "name": "Parse required field"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const binKeys = Object.keys(item.binary || {});\n\n  if (binKeys.length === 0) continue;   // No binary → skip\n\n  const key = binKeys[0];              // First binary key: attachment_0, attachment_1 etc\n  const bin = item.binary[key];\n\n  // Fix extension safely\n  if (bin.fileName) {\n    bin.fileName = bin.fileName.replace(/\\.docx$/i, '.zip');\n  }\n\n  // Update metadata\n  bin.fileExtension = 'zip';\n  bin.mimeType = 'application/zip';\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        144
+      ],
+      "id": "08e47c34-e66c-4d50-8499-399cb7fc8aac",
+      "name": "convert docx to zip"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "attachment_0"
+      },
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        144
+      ],
+      "id": "3ef66712-e7cd-4667-b7fd-756f8d393c77",
+      "name": "Decompress zip file"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = [];\n\nfor (const file of Object.values(items[0].binary)) {\n  if (file.fileName === 'document.xml') {\n    result.push({ binary: { data: file } });\n    break;            // found it, stop looping\n  }\n}\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        144
+      ],
+      "id": "48a5981b-068c-49bd-bc61-b4b03d9e7c9f",
+      "name": "extract content in xml"
+    },
+    {
+      "parameters": {
+        "operation": "xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        144
+      ],
+      "id": "63482646-8f6d-4f9b-b697-59a47d3aebcf",
+      "name": "Extract from xml"
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = items[0].json.data.toString('utf8');\n\n// 1. Grab every <w:p> block (paragraph)\nconst paraRegex = /<w:p[^>]*?>([\\s\\S]*?)<\\/w:p>/g;\n// 2. Grab every <w:t> (text run) inside\nconst wTRegex   = /<w:t[^>]*?>(.*?)<\\/w:t>/g;\n\nlet textOutput = '';\nlet pMatch;\n\nwhile ((pMatch = paraRegex.exec(xml))) {\n  const inner = pMatch[1];\n  let paragraph = '';\n\n  let tMatch;\n  while ((tMatch = wTRegex.exec(inner))) {\n    paragraph += tMatch[1];\n  }\n\n  paragraph = paragraph.replace(/\\s+/g, ' ').trim();\n  if (paragraph) {\n    textOutput += paragraph + '\\n\\n';\n  }\n}\n\nreturn [{\n  json: {\n    text: textOutput.trim()\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        144
+      ],
+      "id": "c7134d51-72bc-426a-b7b7-3620bbfcd59e",
+      "name": "Parse xml to required text"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        48,
+        -112
+      ],
+      "id": "b82f851b-aba2-4386-8300-d73fe3fd1aba",
+      "name": "Merge mail and docx content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// DOCX-only final combiner\n\nconst input = $input.item;\n\n// 🔐 Get email metadata\nconst email = input.json;\n\nlet senderEmail = '';\nlet senderName = '';\n\nif (email.from?.value?.[0]) {\n  senderEmail = email.from.value[0].address || '';\n  senderName  = email.from.value[0].name || '';\n} else {\n  senderEmail = email.from?.text || '';\n}\n\n// Timestamp normalize\nconst timestamp = email.date && !isNaN(Date.parse(email.date))\n  ? new Date(email.date).toISOString()\n  : new Date().toISOString();\n\n// 🔍 Extract attachment binary\nif (!input.binary) {\n  throw new Error('❌ No attachment binary found');\n}\n\nconst binaryKey = Object.keys(input.binary)[0];\nconst bin = input.binary[binaryKey];\n\n// 📌 DOCX extracted text is inside email.text\n// Gmail triggers try to flatten docx into text automatically\nconst resumeText = email.text?.trim() || '';\n\nif (!resumeText) {\n  throw new Error('❌ No resume text extracted from DOCX (email.text empty)');\n}\n\nreturn [\n  {\n    json: {\n      candidateEmail: senderEmail,\n      candidateName: senderName,\n      emailSubject: email.subject || '',\n      emailBody: email.html || email.textAsHtml || email.text || '',\n      receivedDate: timestamp,\n      messageId: email.messageId || '',\n      threadId: email.threadId || '',\n\n      // Attachment metadata\n      fileName: bin.fileName || 'unknown',\n      mimeType: bin.mimeType || '',\n      fileExtension: (bin.fileName || '').split('.').pop(),\n\n      // Actual usable text\n      resumeText,\n    },\n    binary: {\n      [binaryKey]: bin\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        -112
+      ],
+      "id": "1fb56ec6-a8c6-49a9-ac09-355552f4bdf1",
+      "name": "Parse required content"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As",
+          "mode": "list",
+          "cachedResultName": "Resume Screener Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Active Jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As/edit#gid=0"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically"
+            }
+          },
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        -112
+      ],
+      "id": "7a825f0e-69df-460c-a299-15f3a40517bf",
+      "name": "Check job description",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        736,
+        -432
+      ],
+      "id": "68f5ed29-2013-4443-bf61-5a520a8ad52c",
+      "name": "Merge job description and required field"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=JOB TITLE: {{ $json.jobTitle }}\n\nJOB DESCRIPTION:{{ $json.jobDescription }}\n\n\nREQUIRED SKILLS:{{ $json.jobDescription }}\n\n\n---\n\nCANDIDATE RESUME:{{ $json.resumeText }}",
+        "options": {
+          "systemMessage": "=You are an expert HR recruiter tasked with evaluating candidate resumes against job descriptions.\n\nAnalyze the provided resume and job description, then return a structured evaluation in the following JSON format:\n\n{\n  \"timestamp\": {{ $json.receivedDate }},\n  \"candidateEmail\": {{ $json.candidateEmail }},\n  \"fileName\": {{ $json.fileName }},\n  \"jobTitle\": {{ $json.jobTitle }},\n  \"overallScore\": <number 0-100>,\n  \"matchLevel\": \"<EXCELLENT|GOOD|MODERATE|POOR>\",\n  \"experienceMatch\": <number 0-100>,\n  \"skillsMatch\": <number 0-100>,\n  \"educationMatch\": <number 0-100>,\n  \"keyStrengths\": [\"strength1\", \"strength2\", \"strength3\"],\n  \"missingRequirements\": [\"requirement1\", \"requirement2\"],\n  \"recommendInterview\": <true|false>,\n  \"summary\": \"<2-3 sentence evaluation>\",\n  \"redFlags\": [\"flag1 if any\"]\n}\n\nBe objective, thorough, and fair in your assessment."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1024,
+        -432
+      ],
+      "id": "07b72f80-be42-4312-aac5-28d0af787452",
+      "name": "AI Agent to evaluate resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const raw = item.json.output || '';\n\n  let cleaned = raw;\n\n  // Remove ```json and ``` if present\n  cleaned = cleaned.replace(/```json/i, '').replace(/```/g, '').trim();\n\n  let parsed;\n  try {\n    parsed = JSON.parse(cleaned);\n  } catch (e) {\n    parsed = {\n      timestamp: new Date().toISOString(),\n      candidateEmail: '',\n      fileName: '',\n      jobTitle: '',\n      overallScore: 0,\n      matchLevel: 'ERROR',\n      experienceMatch: 0,\n      skillsMatch: 0,\n      educationMatch: 0,\n      keyStrengths: [],\n      missingRequirements: [],\n      recommendInterview: false,\n      summary: 'Failed to parse JSON',\n      redFlags: []\n    };\n  }\n\n  results.push({\n    json: {\n      timestamp: parsed.timestamp,\n      candidateEmail: parsed.candidateEmail,\n      fileName: parsed.fileName,\n      jobTitle: parsed.jobTitle,\n\n      overallScore: parsed.overallScore,\n      matchLevel: parsed.matchLevel,\n      experienceMatch: parsed.experienceMatch,\n      skillsMatch: parsed.skillsMatch,\n      educationMatch: parsed.educationMatch,\n\n      keyStrengths: parsed.keyStrengths?.join('; ') || '',\n      missingRequirements: parsed.missingRequirements?.join('; ') || '',\n      recommendInterview: parsed.recommendInterview,\n      summary: parsed.summary,\n      redFlags: parsed.redFlags?.join('; ') || 'None'\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -432
+      ],
+      "id": "1dbb66c6-a2f8-4d2f-8311-5a95887cc48f",
+      "name": "Parse ai agent output"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As",
+          "mode": "list",
+          "cachedResultName": "Resume Screener Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2002055964,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Airo-3aC-wT4jL8mrwKUKFhmh55LLbAINQyFI37D9As/edit#gid=2002055964"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "candidateEmail": "={{ $json.candidateEmail }}",
+            "fileName": "={{ $json.fileName }}",
+            "jobTitle": "={{ $json.jobTitle }}",
+            "overallScore": "={{ $json.overallScore }}",
+            "matchLevel": "={{ $json.matchLevel }}",
+            "experienceMatch": "={{ $json.experienceMatch }}",
+            "skillsMatch": "={{ $json.skillsMatch }}",
+            "educationMatch": "={{ $json.educationMatch }}",
+            "keyStrengths": "={{ $json.keyStrengths }}",
+            "missingRequirements": "={{ $json.missingRequirements }}",
+            "recommendInterview": "={{ $json.recommendInterview }}",
+            "summary": "={{ $json.summary }}",
+            "redFlags": "={{ $json.redFlags }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidateEmail",
+              "displayName": "candidateEmail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fileName",
+              "displayName": "fileName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "jobTitle",
+              "displayName": "jobTitle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "overallScore",
+              "displayName": "overallScore",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "matchLevel",
+              "displayName": "matchLevel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "experienceMatch",
+              "displayName": "experienceMatch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "skillsMatch",
+              "displayName": "skillsMatch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "educationMatch",
+              "displayName": "educationMatch",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyStrengths",
+              "displayName": "keyStrengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "missingRequirements",
+              "displayName": "missingRequirements",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommendInterview",
+              "displayName": "recommendInterview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "redFlags",
+              "displayName": "redFlags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1568,
+        -432
+      ],
+      "id": "9fa2cb5d-aa2d-43ec-a418-6971f9988f05",
+      "name": "Save to sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "84927dad-740f-4683-a9ff-082a0ba9cfc6",
+              "leftValue": "={{ $json.overallScore }}",
+              "rightValue": 75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "6a4c21f7-8cea-4abb-8d99-a780a3bf6d6b",
+              "leftValue": "={{ $json.recommendInterview }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        -432
+      ],
+      "id": "6cd263ec-241e-4fad-b493-2ede94fa2acf",
+      "name": "check overall score"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=🎯 **HIGH-MATCH CANDIDATE DETECTED**  **Job:** {{ $json.jobTitle }} **Candidate:** {{ $json.candidateEmail }} **Overall Score:** {{ $json.overallScore }}/100 **Match Level:** {{ $json.matchLevel }}  📊 **Breakdown:** - Experience: {{ $json.experienceMatch }}/100 - Skills: {{ $json.skillsMatch }}/100 - Education: {{ $json.educationMatch }}/100  ✅ **Key Strengths:** {{ $json.keyStrengths }}  ⚠️ **Missing Requirements:** {{ $json.missingRequirements }}  📝 **Summary:** {{ $json.summary }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2000,
+        -448
+      ],
+      "id": "d1993001-415e-44a1-9727-2de976688a80",
+      "name": "Send telegram notification",
+      "webhookId": "ac61922b-4435-4f64-948d-effd41f45aa3",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Separate pdf and docx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent to evaluate resume",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separate pdf and docx": {
+      "main": [
+        [
+          {
+            "node": "Extract pdf content",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge mail and pdf content",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "convert docx to zip",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge mail and docx content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract pdf content": {
+      "main": [
+        [
+          {
+            "node": "Merge mail and pdf content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge mail and pdf content": {
+      "main": [
+        [
+          {
+            "node": "Parse required field",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse required field": {
+      "main": [
+        [
+          {
+            "node": "Merge job description and required field",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check job description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "convert docx to zip": {
+      "main": [
+        [
+          {
+            "node": "Decompress zip file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decompress zip file": {
+      "main": [
+        [
+          {
+            "node": "extract content in xml",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract content in xml": {
+      "main": [
+        [
+          {
+            "node": "Extract from xml",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from xml": {
+      "main": [
+        [
+          {
+            "node": "Parse xml to required text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse xml to required text": {
+      "main": [
+        [
+          {
+            "node": "Merge mail and docx content",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge mail and docx content": {
+      "main": [
+        [
+          {
+            "node": "Parse required content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse required content": {
+      "main": [
+        [
+          {
+            "node": "Merge job description and required field",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check job description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check job description": {
+      "main": [
+        [
+          {
+            "node": "Merge job description and required field",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge job description and required field": {
+      "main": [
+        [
+          {
+            "node": "AI Agent to evaluate resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent to evaluate resume": {
+      "main": [
+        [
+          {
+            "node": "Parse ai agent output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ai agent output": {
+      "main": [
+        [
+          {
+            "node": "Save to sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to sheets": {
+      "main": [
+        [
+          {
+            "node": "check overall score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check overall score": {
+      "main": [
+        [
+          {
+            "node": "Send telegram notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0468dc46-3030-4300-8604-43223326078c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "PlHUZMalQa2u9yLR",
+  "tags": []
+}

@@ -1,0 +1,494 @@
+{
+  "name": "AI Lead Qualification System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/lead-capture",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3982f812-012d-4f84-89d7-bfdb63d639ca",
+      "name": "Webhook",
+      "webhookId": "dcd4bddd-3d23-4acf-adc5-232b4ec9072a"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following lead information and qualify the lead.\n\nReturn ONLY a valid JSON object using this EXACT structure:\n\n{\n  \"qualification\": \"Hot\" | \"Warm\" | \"Cold\",\n  \"intent_score\": 1-10,\n  \"urgency_level\": \"High\" | \"Medium\" | \"Low\",\n  \"budget_signals\": \"Strong\" | \"Moderate\" | \"Weak\" | \"None\",\n  \"relevance_score\": 1-10,\n  \"reasoning\": \"brief explanation\",\n  \"recommended_action\": \"specific next step\"\n}\n\nQualification Rules:\n- Hot:\n  - Clear buying intent\n  - High urgency\n  - Strong or moderate budget signals\n  - High relevance\n  - Scores between 8–10\n\n- Warm:\n  - Moderate intent\n  - Some urgency OR some budget indication\n  - Medium relevance\n  - Scores between 5–7\n\n- Cold:\n  - Low or unclear intent\n  - No urgency\n  - Weak or no budget signals\n  - Low relevance\n  - Scores between 1–4\n\nLead Data:\n{{ $json.ai_prompt }}\n\nImportant:\n- Do NOT explain your output\n- Do NOT include markdown or commentary\n- Output ONLY the JSON object\n",
+        "options": {
+          "systemMessage": "You are a senior B2B lead qualification expert with experience in sales operations, CRM scoring, and inbound lead analysis.\n\nYour task is to evaluate leads objectively based on intent, urgency, budget signals, and relevance.\n\nYou MUST:\n- Respond with ONLY valid JSON\n- Follow the exact JSON schema provided\n- Use concise, professional reasoning\n- Never add explanations, markdown, or extra text outside JSON\n- Be conservative and realistic in scoring (avoid over-scoring weak leads)\n\nYou are optimized for accuracy, consistency, and automation workflows.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d06a7289-f2eb-4614-85e7-1ef10a7bf401",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        624,
+        176
+      ],
+      "id": "0f132784-f599-4b27-9a81-ea903abc290c",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "IfKkKP8K0XM7arme",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ba7afe1-c141-4fed-bee6-e3d6094428ee",
+              "leftValue": "={{ $json.Qualification }}",
+              "rightValue": "=Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "f6f5ccb1-6a43-4b60-a867-d74b21f7c6fe",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0d9d39fe-bd0b-499a-b9bb-1b880393a602",
+              "name": "lead_name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "179e4866-b61d-4c23-9892-7d9ee53c24cd",
+              "name": "lead_email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "fcca7b96-7c22-41c9-9136-3256128ae44f",
+              "name": "lead_phone",
+              "value": "={{ $json.body.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fe6b75df-539e-4177-8ea8-233d57dcb65b",
+              "name": "lead_company",
+              "value": "={{ $json.body.company }}",
+              "type": "string"
+            },
+            {
+              "id": "f36b7897-80f7-43db-a515-69fc89aedba2",
+              "name": "lead_message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "5c0c68d9-a928-4f04-ad84-c2ff875b4179",
+              "name": "lead_source",
+              "value": "={{ $json.body.source }}",
+              "type": "string"
+            },
+            {
+              "id": "56a6acd3-fe65-4ea5-90f4-f2d0434498d0",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b30a1b32-1335-4706-be31-d249ce9b00f6",
+      "name": "Normalize Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const leadData = {\n  name: $input.item.json.lead_name,\n  email: $input.item.json.lead_email,\n  phone: $input.item.json.lead_phone,\n  company: $input.item.json.lead_company,\n  message: $input.item.json.lead_message,\n  source: $input.item.json.lead_source\n};\n\nconst aiPrompt = `Analyze this lead and provide qualification:\n\nLead Information:\n- Name: ${leadData.name}\n- Email: ${leadData.email}\n- Company: ${leadData.company}\n- Message: ${leadData.message}\n- Source: ${leadData.source}\n\nEvaluate and respond ONLY with valid JSON.`;\n\nreturn {\n  json: {\n    ...leadData,\n    ai_prompt: aiPrompt,\n    lead_id: $input.item.json.lead_id,\n    timestamp: $input.item.json.timestamp\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "16a7d3fe-7921-44e6-8d4e-741b5b469d04",
+      "name": "Prepare AI Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const leadData = $input.first().json;\nconst aiResponse = $input.first().json.output;\n\nlet parsedAI;\ntry {\n  // Extract JSON from AI response\n  const jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n  parsedAI = JSON.parse(jsonMatch[0]);\n} catch (error) {\n  // Fallback if parsing fails\n  parsedAI = {\n    qualification: \"Cold\",\n    intent_score: 1,\n    urgency_level: \"Low\",\n    budget_signals: \"None\",\n    relevance_score: 1,\n    reasoning: \"AI parsing failed\",\n    recommended_action: \"Manual review required\"\n  };\n}\n\nreturn {\n  json: {\n    lead_id: leadData.lead_id,\n    timestamp: leadData.timestamp,\n    name: leadData.name,\n    email: leadData.email,\n    phone: leadData.phone,\n    company: leadData.company,\n    message: leadData.message,\n    source: leadData.source,\n    qualification: parsedAI.qualification,\n    intent_score: parsedAI.intent_score,\n    urgency_level: parsedAI.urgency_level,\n    budget_signals: parsedAI.budget_signals,\n    relevance_score: parsedAI.relevance_score,\n    reasoning: parsedAI.reasoning,\n    recommended_action: parsedAI.recommended_action\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "9445450e-e43e-4c4b-86e6-d52c7ffef957",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fJhStZ-3FzfjugkMYM3CKnPSp_KbAEaWrCp2JNvYmP4",
+          "mode": "list",
+          "cachedResultName": "qualified lead",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fJhStZ-3FzfjugkMYM3CKnPSp_KbAEaWrCp2JNvYmP4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fJhStZ-3FzfjugkMYM3CKnPSp_KbAEaWrCp2JNvYmP4/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Qualification": "={{ $json.qualification }}",
+            "Intent Score": "={{ $json.intent_score }}",
+            "Urgency Level": "={{ $json.urgency_level }}",
+            "Budget Signals": "={{ $json.budget_signals }}",
+            "Relevance Score": "={{ $json.relevance_score }}",
+            "Reasoning": "={{ $json.reasoning }}",
+            "Recommended Action": "={{ $json.recommended_action }}",
+            "Timestamp": "={{$('Normalize Data').item.json.timestamp}}",
+            "Name": "={{ $('Normalize Data').item.json.lead_name }}",
+            "Email": "={{ $('Normalize Data').item.json.lead_email }}",
+            "Phone": "={{ $('Normalize Data').item.json.lead_phone }}",
+            "Company": "={{ $('Normalize Data').item.json.lead_company }}",
+            "Message": "={{ $('Normalize Data').item.json.lead_message }}",
+            "Source": "={{ $('Normalize Data').item.json.lead_source }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Qualification",
+              "displayName": "Qualification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Intent Score",
+              "displayName": "Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgency Level",
+              "displayName": "Urgency Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget Signals",
+              "displayName": "Budget Signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Relevance Score",
+              "displayName": "Relevance Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommended Action",
+              "displayName": "Recommended Action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "2aa4768f-83d6-457b-98c2-211902d09c8e",
+      "name": "Save Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=🔥 HOT LEAD ALERT 🔥\n\n📋 Lead Details:\n- Name: {{ $json.name }}\n- Company: {{ $json.company }}\n- Email: {{ $json.email }}\n- Phone: {{ $json.phone }}\n\n📊 Qualification:\n- Status: {{ $json.qualification }}\n- Intent Score: {{ $json.intent_score }}/10\n- Urgency: {{ $json.urgency_level }}\n- Budget Signals: {{ $json.budget_signals }}\n\n💡 AI Reasoning:\n{{ $json.reasoning }}\n\n✅ Recommended Action:\n{{ $json.recommended_action }}\n\n📝 Original Message:\n{{ $json.message }}\n\n🕐 Received: {{ $json.timestamp }}\n🆔 Lead ID: {{ $json.lead_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1616,
+        -112
+      ],
+      "id": "eeed1e1f-fb2d-4417-a7a8-f95dfa43e428",
+      "name": "Telegram Notification",
+      "webhookId": "74a4b82a-6a88-461e-8d81-7bb430ee82af",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Save Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "581c4aa4-b52a-4584-9574-789365c4f10d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "cIpWnKWLzzGOQvn7",
+  "tags": []
+}

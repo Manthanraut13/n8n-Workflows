@@ -1,0 +1,526 @@
+{
+  "name": "AI_Business_Health_Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -48
+      ],
+      "id": "f6cc6a11-96d8-4512-b26c-c08c5bd1171e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM",
+          "mode": "list",
+          "cachedResultName": "AI_Business_Health_Monitor",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 616394705,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit#gid=616394705"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        128,
+        32
+      ],
+      "id": "4c9cd7c3-d206-4e46-b535-8580c381806f",
+      "name": "Fetch Historical Reports Archive",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM",
+          "mode": "list",
+          "cachedResultName": "AI_Business_Health_Monitor",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        128,
+        -144
+      ],
+      "id": "2e96b469-67a8-4778-8340-279ca2c50276",
+      "name": "Fetch Current Week Metrics",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        304,
+        -48
+      ],
+      "id": "a8d1e656-cf6f-4edc-bedf-c0fa3b06b27c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// ---- Extract current metrics (item 0) ----\nconst currentRaw = items[0]?.json || {};\nconst currentMetrics = {};\n\nfor (const [key, value] of Object.entries(currentRaw)) {\n  if (key !== \"row_number\") {\n    currentMetrics[key] = Number(value) || 0;\n  }\n}\n\n// ---- Extract previous metrics (item 1) ----\nlet previousMetrics = {};\nconst previousItem = items[1]?.json;\n\nif (previousItem && previousItem[\"Metrics JSON\"]) {\n  const raw = previousItem[\"Metrics JSON\"];\n\n  try {\n    // Case 1: already valid JSON\n    previousMetrics = typeof raw === \"string\" ? JSON.parse(raw) : raw;\n  } catch (e1) {\n    try {\n      // Case 2: double-escaped JSON from Sheets\n      const unescaped = raw.replace(/\\\\\"/g, '\"');\n      previousMetrics = JSON.parse(unescaped);\n    } catch (e2) {\n      // Final fallback: do NOT crash pipeline\n      previousMetrics = {};\n    }\n  }\n}\n\n// ---- Delta calculation ----\nconst deltas = {};\n\nfor (const key of Object.keys(currentMetrics)) {\n  const currentValue = Number(currentMetrics[key]) || 0;\n  const previousValue = Number(previousMetrics[key]) || 0;\n\n  const absoluteDelta = currentValue - previousValue;\n  const percentChange =\n    previousValue !== 0\n      ? Number(((absoluteDelta / previousValue) * 100).toFixed(1))\n      : 0;\n\n  deltas[key] = {\n    current_value: currentValue,\n    previous_value: previousValue,\n    absolute_delta: absoluteDelta,\n    percent_change: percentChange,\n    direction:\n      absoluteDelta > 0 ? \"↑\" :\n      absoluteDelta < 0 ? \"↓\" : \"→\"\n  };\n}\n\n// ---- Output ----\nreturn [\n  {\n    json: {\n      current_metrics: currentMetrics,\n      previous_metrics: previousMetrics,\n      deltas,\n      report_date: previousItem?.[\"Report Date\"] || null,\n      generated_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -48
+      ],
+      "id": "fd19826c-9311-4949-adc3-cf0f3033fe97",
+      "name": "Calculate Week-over-Week Deltas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// ---- Identify inputs safely ----\nconst historyItem = items.find(i => i.json?.[\"Metrics JSON\"]);\nconst currentItem = items.find(i => i.json?.current_metrics);\n\n// ---- Parse historical metrics (optional) ----\nlet historicalMetrics = {};\nlet reportDate = null;\n\nif (historyItem) {\n  reportDate = historyItem.json[\"Report Date\"] || null;\n\n  const raw = historyItem.json[\"Metrics JSON\"];\n  if (raw) {\n    try {\n      historicalMetrics =\n        typeof raw === \"string\"\n          ? JSON.parse(raw.replace(/\\\\\"/g, '\"'))\n          : raw;\n    } catch {\n      historicalMetrics = {};\n    }\n  }\n}\n\n// ---- Current metrics (required for trends) ----\nlet currentMetrics = {};\nlet deltas = {};\n\nif (currentItem) {\n  currentMetrics = currentItem.json.current_metrics || {};\n  deltas = currentItem.json.deltas || {};\n}\n\n// ---- If no current metrics, return safe noop ----\nif (!currentItem) {\n  return [\n    {\n      json: {\n        trends: {},\n        status: \"skipped\",\n        reason: \"No current metrics available\",\n        generated_at: new Date().toISOString()\n      }\n    }\n  ];\n}\n\n// ---- Trend detection (2-point comparison) ----\nconst trends = {};\n\nfor (const metric of Object.keys(currentMetrics)) {\n  const curr = Number(currentMetrics[metric]);\n  const prev = Number(historicalMetrics[metric]);\n\n  if (Number.isNaN(curr)) continue;\n\n  let trend_label = \"flat\";\n  let trend_score = 0;\n\n  if (!Number.isNaN(prev)) {\n    if (curr > prev) {\n      trend_label = \"uptrend\";\n      trend_score = 1;\n    } else if (curr < prev) {\n      trend_label = \"downtrend\";\n      trend_score = -1;\n    }\n  } else {\n    trend_label = \"new_metric\";\n  }\n\n  trends[metric] = {\n    previous_value: Number.isNaN(prev) ? null : prev,\n    current_value: curr,\n    absolute_delta: deltas[metric]?.absolute_delta ?? null,\n    percent_change: deltas[metric]?.percent_change ?? null,\n    direction: deltas[metric]?.direction ?? \"→\",\n    trend_label,\n    trend_score\n  };\n}\n\n// ---- Output (always 1 item) ----\nreturn [\n  {\n    json: {\n      trends,\n      report_date: reportDate || currentItem.json.report_date || null,\n      generated_at: new Date().toISOString(),\n      status: historyItem ? \"full_comparison\" : \"partial_comparison\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -48
+      ],
+      "id": "8b46c2d4-f708-451e-9cb3-c8ebe0795b78",
+      "name": "Trend Direction & Pattern Detection"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n    \"executive_summary\": \"Lead volume is up 18% but conversion quality is down 18%. This suggests increased lead gen activity but degraded ICP targeting or qualification process.\",\n    \"whats_working\": [\n      {\n        \"signal\": \"Lead generation volume\",\n        \"evidence\": \"45 leads this week vs 38 last week (↑18.4%)\",\n        \"significance\": \"Top-of-funnel activity is healthy and accelerating\",\n        \"momentum\": \"Accelerating\"\n      }\n    ],\n    \"whats_concerning\": [\n      {\n        \"signal\": \"Qualified lead conversion rate declining\",\n        \"evidence\": \"Only 18 qualified of 45 leads (40% conversion) vs 58% last week\",\n        \"severity\": \"High\",\n        \"likely_cause\": \"Lead source quality degradation OR qualification criteria too strict OR sales team capacity issue\",\n        \"leading_indicator\": \"Watch revenue impact in 2-3 weeks\"\n      }\n    ],\n    \"trend_analysis\": [\n      {\n        \"metric\": \"leads_this_week\",\n        \"current_trend\": \"gradual_increase\",\n        \"business_meaning\": \"Lead gen pipeline is working, demand exists\",\n        \"confidence\": \"High\"\n      }\n    ],\n    \"funnel_analysis\": {\n      \"stage\": \"leads → qualified → deal → revenue\",\n      \"bottleneck\": \"Qualified lead conversion is the constraint\",\n      \"recommendation\": \"Audit lead sources and qualification criteria this week\"\n    },\n    \"blind_spots\": [\n      \"Are leads coming from a new channel with lower quality?\",\n      \"Did sales capacity change (team turnover)?\"\n    ],\n    \"recommended_focus_areas\": [\n      {\n        \"area\": \"Investigate lead source quality\",\n        \"priority\": \"P1\",\n        \"expected_impact\": \"Improve qualified lead ratio back to 50%+\",\n        \"effort\": \"Low\"\n      }\n    ],\n    \"overall_health_score\": 62,\n    \"health_score_rationale\": \"Volume is good but conversion is declining. Funnel integrity is compromised.\",\n    \"confidence_level\": \"High\",\n    \"confidence_rationale\": \"Clear data signal with multiple weeks of history to confirm trend\"\n  }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        992,
+        176
+      ],
+      "id": "16e4c405-feb5-465e-b77a-1fc66417d677",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        848,
+        176
+      ],
+      "id": "0a118069-a07e-4bda-890d-f58389931ff2",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=CONTEXT PROVIDED:\nCurrent Metrics:\n      \"leads_this_week\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.leads_this_week }},\n      \"qualified_leads\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.qualified_leads }},\n      \"revenue\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.revenue }},\n      \"content_published\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.content_published }},\n      \"engagement_signals\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.engagement_signals }},\n      \"support_tickets\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.support_tickets }},\n      \"team_size\": {{ $('Calculate Week-over-Week Deltas').item.json.current_metrics.team_size }}\n\n\nWeek-over-Week Changes: \nleads_this_week absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.leads_this_week.absolute_delta }}\nqualified_leads absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.qualified_leads.absolute_delta }}\nrevenue\tabsolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.revenue.absolute_delta }}\ncontent_published absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.content_published.absolute_delta }}\nengagement_signals absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.engagement_signals.absolute_delta }}\nsupport_tickets absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.support_tickets.absolute_delta }}\nteam_size absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.team_size.absolute_delta }}\ncustomer_sat absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.customer_sat.absolute_delta }}\nnps_score absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.nps_score.absolute_delta }}\nchurn_rate absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.churn_rate.absolute_delta }}\ndeal_pipeline absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.deal_pipeline.absolute_delta }}\ndemo_requests absolute_delta:{{ $('Calculate Week-over-Week Deltas').item.json.deltas.demo_requests.absolute_delta }}\n\nOUTPUT REQUIREMENTS:\nReturn ONLY valid JSON (no markdown, no explanations outside JSON).",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a Chief Operating Officer analyzing weekly business health signals.\n\nYou have been given:\n1. Current week metrics\n2. Week-over-week deltas (changes)\n3. 4-week trend analysis with volatility scores\n4. Historical reports from the past 4 weeks\n\nYour job is NOT to describe the data. Your job is to:\n- Interpret what these signals MEAN for the business\n- Explain cause-effect relationships (e.g., \"qualified lead decline likely stems from lower overall lead quality despite volume increase\")\n- Identify risks before they become critical (lagging indicators)\n- Spot early opportunities (leading indicators)\n- Recommend where focused effort would have the highest impact\n\nANALYSIS FRAMEWORK:\n1. FUNNEL HEALTH: Does the conversion pipeline work? Are we losing people at any stage?\n2. MOMENTUM: Are trends positive, neutral, or negative? Is momentum accelerating or decelerating?\n3. CONSISTENCY: Are metrics volatile (unpredictable) or stable (reliable)?\n4. EARLY WARNINGS: What metric declining now might cause bigger problems next week?\n5. STRENGTH AREAS: Where is the business compounding? What should we protect/amplify?\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        848,
+        -48
+      ],
+      "id": "77f7590f-1413-4daa-bea2-bae32f5c1b44",
+      "name": "AI Agent - Business Context Interpreter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.all()[0]?.json || {};\n\n// ---- Safe JSON parsing helper ----\nfunction safeParse(value, fallback = {}) {\n  if (!value) return fallback;\n  if (typeof value === \"object\") return value;\n  try {\n    return JSON.parse(value.replace(/\\\\\"/g, '\"'));\n  } catch {\n    return fallback;\n  }\n}\n\n// ---- Normalize to array helper ----\nfunction toArray(value) {\n  if (!value) return [];\n  return Array.isArray(value) ? value : [value];\n}\n\n// ---- Parse analysis (handles string/object) ----\nconst analysis = safeParse(item);\n\n// ---- Normalize fields ----\nconst whatsWorking = toArray(analysis.whats_working);\nconst whatsConcerning = toArray(analysis.whats_concerning);\nconst trendAnalysis = toArray(analysis.trend_analysis);\nconst focusAreas = toArray(analysis.recommended_focus_areas);\nconst blindSpots = toArray(analysis.blind_spots);\n\n// ---- Build report ----\nlet report = `# 📊 Business Health Monitor – Weekly Report\\n\\n`;\nreport += `**Week Ending:** ${new Date().toISOString().split(\"T\")[0]}\\n`;\nreport += `**Overall Health Score:** ${analysis.overall_health_score ?? \"N/A\"}/100\\n`;\nreport += `**Confidence Level:** ${analysis.confidence_level ?? \"N/A\"}\\n\\n`;\n\nreport += `---\\n\\n`;\nreport += `## 🔍 Executive Pulse\\n\\n`;\nreport += `${analysis.executive_summary ?? \"No executive summary available.\"}\\n\\n`;\n\nreport += `---\\n\\n`;\nreport += `## ✅ What's Working\\n\\n`;\nif (whatsWorking.length === 0) {\n  report += `- No strong positive signals identified this week.\\n\\n`;\n} else {\n  for (const item of whatsWorking) {\n    report += `### ${item.signal ?? \"Positive Signal\"}\\n`;\n    report += `- **Evidence:** ${item.evidence ?? \"N/A\"}\\n`;\n    report += `- **Significance:** ${item.significance ?? \"N/A\"}\\n`;\n    report += `- **Momentum:** ${item.momentum ?? \"N/A\"}\\n\\n`;\n  }\n}\n\nreport += `---\\n\\n`;\nreport += `## ⚠️ What's Concerning\\n\\n`;\nif (whatsConcerning.length === 0) {\n  report += `- No critical risks detected.\\n\\n`;\n} else {\n  for (const item of whatsConcerning) {\n    report += `### ${item.signal ?? \"Risk Signal\"}\\n`;\n    report += `- **Evidence:** ${item.evidence ?? \"N/A\"}\\n`;\n    report += `- **Severity:** **${item.severity ?? \"Unknown\"}**\\n`;\n    report += `- **Likely Cause:** ${item.likely_cause ?? \"N/A\"}\\n`;\n    report += `- **Watch Next:** ${item.leading_indicator ?? \"N/A\"}\\n\\n`;\n  }\n}\n\nreport += `---\\n\\n`;\nreport += `## 📈 Trend Analysis\\n\\n`;\nif (trendAnalysis.length === 0) {\n  report += `- No clear trend patterns available.\\n\\n`;\n} else {\n  for (const item of trendAnalysis) {\n    report += `**${item.metric ?? \"Metric\"}** → ${item.current_trend ?? \"flat\"}\\n`;\n    report += `${item.business_meaning ?? \"\"}\\n\\n`;\n  }\n}\n\nreport += `---\\n\\n`;\nreport += `## 🎯 Where to Focus Next Week\\n\\n`;\nif (focusAreas.length === 0) {\n  report += `- No specific focus areas identified.\\n\\n`;\n} else {\n  for (const item of focusAreas) {\n    const icon =\n      item.priority === \"P1\" ? \"🔴\" :\n      item.priority === \"P2\" ? \"🟡\" : \"🟢\";\n\n    report += `${icon} **${item.area ?? \"Focus Area\"}** (${item.effort ?? \"unknown\"} effort)\\n`;\n    report += `→ Expected impact: ${item.expected_impact ?? \"N/A\"}\\n\\n`;\n  }\n}\n\nreport += `---\\n\\n`;\nreport += `## 💡 Blind Spots\\n\\n`;\nif (blindSpots.length === 0) {\n  report += `- No blind spots identified.\\n`;\n} else {\n  for (const spot of blindSpots) {\n    report += `- ${spot}\\n`;\n  }\n}\n\nreport += `\\n---\\n\\n`;\nreport += `*Generated by AI Business Health Monitor*\\n`;\nreport += `*Confidence rationale: ${analysis.confidence_rationale ?? \"N/A\"}*\\n`;\n\n// ---- Output ----\nreturn [\n  {\n    json: {\n      markdown_report: report,\n      analysis\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -48
+      ],
+      "id": "82a5277c-e74f-4b3e-ad79-6693ee15117d",
+      "name": "Markdown Report Formatter"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM",
+          "mode": "list",
+          "cachedResultName": "AI_Business_Health_Monitor",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 616394705,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AKrphMG4nF2ATkRmfBfSskDg7PujQnAi7uzVNog7lmM/edit#gid=616394705"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "AI Analysis JSON": "={{ $json.analysis }}",
+            "Confidence Level": "={{ $json.analysis.output.confidence_level }}",
+            "Health Score": "={{ $json.analysis.output.overall_health_score }}",
+            "Executive Summary": "={{ $json.analysis.output.executive_summary }}",
+            "Bottleneck": "={{ $json.analysis.output.funnel_analysis.bottleneck }}",
+            "Top Priority": "={{ $('AI Agent - Business Context Interpreter').item.json.output.recommended_focus_areas[0].area }}",
+            "Key Actions": "={{ $('AI Agent - Business Context Interpreter').item.json.output.confidence_rationale }}",
+            "Generated At": "={{ $now }}",
+            "Metrics JSON": "={{ $json.analysis.output.whats_working }}",
+            "Report Date": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Report Date",
+              "displayName": "Report Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Metrics JSON",
+              "displayName": "Metrics JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Analysis JSON",
+              "displayName": "AI Analysis JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Health Score",
+              "displayName": "Health Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Key Actions",
+              "displayName": "Key Actions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confidence Level",
+              "displayName": "Confidence Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Executive Summary",
+              "displayName": "Executive Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Bottleneck",
+              "displayName": "Bottleneck",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Top Priority",
+              "displayName": "Top Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Generated At",
+              "displayName": "Generated At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1440,
+        -48
+      ],
+      "id": "07253a86-954e-4167-8043-95d4670c738c",
+      "name": "Archive Report for Next Week's Comparison",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "=Business Health Monitor - Week of  {{$now.format('yyyy-MM-dd')}}",
+        "message": "={{ $json.markdown_report }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1456,
+        -224
+      ],
+      "id": "ffac7769-1aa6-45a1-8091-3b7ccd4a35db",
+      "name": "Send via Email (Primary)",
+      "webhookId": "61817c50-c43b-4d5e-962e-ac0188e4e520",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "={{ $json.markdown_report }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1456,
+        144
+      ],
+      "id": "e48dd012-a63d-4612-872a-a98a7c3d0536",
+      "name": "Send via Telegram",
+      "webhookId": "abbe9822-3d70-4785-beda-8ebf67f3b486",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Current Week Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Historical Reports Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Historical Reports Archive": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Current Week Metrics": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Calculate Week-over-Week Deltas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Week-over-Week Deltas": {
+      "main": [
+        [
+          {
+            "node": "Trend Direction & Pattern Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trend Direction & Pattern Detection": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Business Context Interpreter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent - Business Context Interpreter",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Business Context Interpreter",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Business Context Interpreter": {
+      "main": [
+        [
+          {
+            "node": "Markdown Report Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown Report Formatter": {
+      "main": [
+        [
+          {
+            "node": "Send via Telegram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send via Email (Primary)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Archive Report for Next Week's Comparison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f355de7c-7c04-492f-9b8b-bf6e5fbdc7ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "RU1hPmj3vXYnIpDS",
+  "tags": []
+}

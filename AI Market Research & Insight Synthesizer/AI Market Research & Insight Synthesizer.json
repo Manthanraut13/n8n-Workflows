@@ -1,0 +1,598 @@
+{
+  "name": "AI Market Research & Insight Synthesizer",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ",
+          "mode": "list",
+          "cachedResultName": "AI Market Research & Insight Synthesizer",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Research_Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4de88b34-3cc5-4e34-b796-a0cef213444e",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "dgP9j24Jk0fX5lVf",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        192
+      ],
+      "id": "aa42fd64-a2a9-403f-b544-7439f93dee77",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "21840a68-0191-4573-8753-c5878da6bdc7",
+              "name": "niche",
+              "value": "={{ $json.market_niche }}",
+              "type": "string"
+            },
+            {
+              "id": "73a53cde-54f8-4490-b686-67b521c9181f",
+              "name": "geo",
+              "value": "={{ $json.geography }}",
+              "type": "string"
+            },
+            {
+              "id": "37e45f84-c890-45b0-8a8a-f91682153ab1",
+              "name": "audience",
+              "value": "={{ $json.target_audience }}",
+              "type": "string"
+            },
+            {
+              "id": "0755559c-e84b-4684-b082-9e0c989ed5b8",
+              "name": "urls_list",
+              "value": "={{ $json.urls_to_scrape.split(',').map(u => u.trim()) }}",
+              "type": "string"
+            },
+            {
+              "id": "a9146f2c-bf58-48d3-a1a5-14a5cdfac9a8",
+              "name": "timestamp",
+              "value": "={{ $now.format('dd-MM-yyyy') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "c75419e7-8f6b-4dcd-b36f-9719dc1d30ea",
+      "name": "Set - Prepare Variables"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the stringified array\nlet urls = [];\n\ntry {\n  urls = JSON.parse($input.item.json.urls_list);\n} catch (e) {\n  urls = [];\n}\n\n// Ensure we have an array\nif (!Array.isArray(urls)) {\n  urls = [];\n}\n\n// Assign URLs to different keys\nreturn {\n  json: {\n    url_1: urls[0] || \"\",\n    url_2: urls[1] || \"\",\n    url_3: urls[2] || \"\",\n    niche: $input.item.json.niche,\n    geo: $input.item.json.geo,\n    audience: $input.item.json.audience,\n    timestamp: $input.item.json.timestamp\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "f3c47a81-7fe4-4bf6-ab56-fb555f3cc45d",
+      "name": "Function - Split URLs into Array"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_1 }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        -128
+      ],
+      "id": "b3b0b4fe-4549-4c7d-be5f-c848fd714adc",
+      "name": "Scrape Public URLs"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_2 }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        16
+      ],
+      "id": "e3e92cac-8f78-42c3-95c9-ac039caa72e0",
+      "name": "Scrape Public URLs1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_3 }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        176
+      ],
+      "id": "c35d8642-c731-4a9a-9978-37f4223e3c42",
+      "name": "Scrape Public URLs2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data;\nconst url = $input.item.json.clean_url || \"\";\n\n// 1. Remove <script> and <style> blocks\nlet text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, \"\")\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, \"\");\n\n// 2. Strip all remaining HTML tags\ntext = text.replace(/<[^>]+>/g, \" \");\n\n// 3. Decode common HTML entities\nconst entityMap = {\n  \"&nbsp;\": \" \",\n  \"&amp;\": \"&\",\n  \"&lt;\": \"<\",\n  \"&gt;\": \">\",\n  \"&quot;\": \"\\\"\"\n};\n\nfor (const [entity, char] of Object.entries(entityMap)) {\n  text = text.replace(new RegExp(entity, \"g\"), char);\n}\n\n// 4. Normalize whitespace\ntext = text.replace(/\\s+/g, \" \").trim();\n\n// 5. Limit text length (token safety)\nconst textContent = text.slice(0, 4000);\n\n// 6. Output\nreturn {\n  json: {\n    url,\n    text_content1: textContent,\n    word_count: textContent ? textContent.split(\" \").length : 0\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -128
+      ],
+      "id": "1dd85ec8-f330-4c91-bd34-e34977ff1bda",
+      "name": "Extract Clean Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data;\nconst url = $input.item.json.clean_url || \"\";\n\n// 1. Remove <script> and <style> blocks\nlet text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, \"\")\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, \"\");\n\n// 2. Strip all remaining HTML tags\ntext = text.replace(/<[^>]+>/g, \" \");\n\n// 3. Decode common HTML entities\nconst entityMap = {\n  \"&nbsp;\": \" \",\n  \"&amp;\": \"&\",\n  \"&lt;\": \"<\",\n  \"&gt;\": \">\",\n  \"&quot;\": \"\\\"\"\n};\n\nfor (const [entity, char] of Object.entries(entityMap)) {\n  text = text.replace(new RegExp(entity, \"g\"), char);\n}\n\n// 4. Normalize whitespace\ntext = text.replace(/\\s+/g, \" \").trim();\n\n// 5. Limit text length (token safety)\nconst textContent = text.slice(0, 4000);\n\n// 6. Output\nreturn {\n  json: {\n    url,\n    text_content2: textContent,\n    word_count: textContent ? textContent.split(\" \").length : 0\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        16
+      ],
+      "id": "c1d5f724-694b-4708-bc2d-ac5e879140a3",
+      "name": "Extract Clean Text1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data;\nconst url = $input.item.json.clean_url || \"\";\n\n// 1. Remove <script> and <style> blocks\nlet text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, \"\")\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, \"\");\n\n// 2. Strip all remaining HTML tags\ntext = text.replace(/<[^>]+>/g, \" \");\n\n// 3. Decode common HTML entities\nconst entityMap = {\n  \"&nbsp;\": \" \",\n  \"&amp;\": \"&\",\n  \"&lt;\": \"<\",\n  \"&gt;\": \">\",\n  \"&quot;\": \"\\\"\"\n};\n\nfor (const [entity, char] of Object.entries(entityMap)) {\n  text = text.replace(new RegExp(entity, \"g\"), char);\n}\n\n// 4. Normalize whitespace\ntext = text.replace(/\\s+/g, \" \").trim();\n\n// 5. Limit text length (token safety)\nconst textContent = text.slice(0, 4000);\n\n// 6. Output\nreturn {\n  json: {\n    url,\n    text_content3: textContent,\n    word_count: textContent ? textContent.split(\" \").length : 0\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        176
+      ],
+      "id": "a563549a-d609-4eea-9069-a11e7b2fb93a",
+      "name": "Extract Clean Text2"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1104,
+        16
+      ],
+      "id": "d9fe6eae-3784-4817-aaa8-576a01ff2fce",
+      "name": "Merge All Scraped Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following market research data and extract actionable insights.\n\nMARKET NICHE: {{ $('Set - Prepare Variables').item.json.niche }}\nGEOGRAPHY: {{ $('Set - Prepare Variables').item.json.geo }}\nTARGET AUDIENCE: {{ $('Set - Prepare Variables').item.json.audience }}\n\nRESEARCH DATA : {{ $json.text_content1 }} \n\n                {{ $json.text_content2 }}\n\n                {{ $json.text_content3 }}\n\nYOUR TASK:\nAnalyze this data and return ONLY valid JSON with the following structure (no markdown, no extra text):\n\n{\n\"summary\": \"2-3 sentence executive summary of the market state\",\n\"top_trends\": [\"trend 1\", \"trend 2\", \"trend 3\"],\n\"common_pain_points\": [\"pain point 1\", \"pain point 2\", \"pain point 3\"],\n\"opportunities\": [\"opportunity 1\", \"opportunity 2\", \"opportunity 3\"],\n\"risks\": [\"risk 1\", \"risk 2\"],\n\"recommended_focus_areas\": [\"focus area 1\", \"focus area 2\"]\n}\n\nCRITICAL:\nReturn ONLY the JSON object.\nDo NOT include explanations, markdown, or additional text.",
+        "options": {
+          "systemMessage": "=You are an expert market research analyst with deep experience in trend analysis, customer behavior, and competitive intelligence.\nYour job is to analyze unstructured market data and extract clear, actionable, business-focused insights.\nYou must think critically, avoid fluff, and prioritize insights that help decision-makers identify trends, risks, and opportunities.\nAlways return structured, concise, and practical outputs."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1312,
+        32
+      ],
+      "id": "4d59db4d-18f9-49d1-bcb7-bcbe3f7aa7b2",
+      "name": "AI Agent - Synthesize Market Insights"
+    },
+    {
+      "parameters": {
+        "jsCode": "let aiResponse = $input.item.json.output;\n\n// Sometimes AI wraps in markdown - strip it\nif (typeof aiResponse === 'string') {\n  aiResponse = aiResponse.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  aiResponse = JSON.parse(aiResponse);\n}\n\nreturn {\n  json: {\n    research_id: $('Set - Prepare Variables').item.json.research_id,\n    niche: $('Set - Prepare Variables').item.json.niche,\n    geo: $('Set - Prepare Variables').item.json.geo,\n    audience: $('Set - Prepare Variables').item.json.audience,\n    timestamp: new Date().toISOString(),\n    summary: aiResponse.summary,\n    top_trends: aiResponse.top_trends.join(' | '),\n    common_pain_points: aiResponse.common_pain_points.join(' | '),\n    opportunities: aiResponse.opportunities.join(' | '),\n    risks: aiResponse.risks.join(' | '),\n    recommended_focus_areas: aiResponse.recommended_focus_areas.join(' | ')\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        32
+      ],
+      "id": "e35e5e8f-5936-49bc-b90c-ce48e9bdf427",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ",
+          "mode": "list",
+          "cachedResultName": "AI Market Research & Insight Synthesizer",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 514828305,
+          "mode": "list",
+          "cachedResultName": "Research_Results",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Pm0ndqy8paG8TQRS50wcvSCeD8ZUTzyT1dB0NLbQehQ/edit#gid=514828305"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "niche": "={{ $json.niche }}",
+            "geo": "={{ $json.geo }}",
+            "audience": "={{ $json.audience }}",
+            "summary": "={{ $json.summary }}",
+            "top_trends": "={{ $json.top_trends }}",
+            "common_pain_points": "={{ $json.common_pain_points }}",
+            "risks": "={{ $json.risks }}",
+            "opportunities": "={{ $json.opportunities }}",
+            "recommended_focus_areas": "={{ $json.recommended_focus_areas }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "research_id": "="
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "research_id",
+              "displayName": "research_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "niche",
+              "displayName": "niche",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "geo",
+              "displayName": "geo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "top_trends",
+              "displayName": "top_trends",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "common_pain_points",
+              "displayName": "common_pain_points",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "opportunities",
+              "displayName": "opportunities",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risks",
+              "displayName": "risks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_focus_areas",
+              "displayName": "recommended_focus_areas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1872,
+        32
+      ],
+      "id": "e2bb1c95-8b5a-477c-9b2f-24774ae4df52",
+      "name": "Store Insights",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set - Prepare Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Synthesize Market Insights",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Prepare Variables": {
+      "main": [
+        [
+          {
+            "node": "Function - Split URLs into Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function - Split URLs into Array": {
+      "main": [
+        [
+          {
+            "node": "Scrape Public URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Public URLs1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Public URLs2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Public URLs": {
+      "main": [
+        [
+          {
+            "node": "Extract Clean Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Public URLs1": {
+      "main": [
+        [
+          {
+            "node": "Extract Clean Text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Public URLs2": {
+      "main": [
+        [
+          {
+            "node": "Extract Clean Text2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Clean Text": {
+      "main": [
+        [
+          {
+            "node": "Merge All Scraped Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Clean Text1": {
+      "main": [
+        [
+          {
+            "node": "Merge All Scraped Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extract Clean Text2": {
+      "main": [
+        [
+          {
+            "node": "Merge All Scraped Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge All Scraped Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Synthesize Market Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Synthesize Market Insights": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Store Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7c7f75dc-06f6-430c-af90-591a37db1f20",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "UuDYznJB0L1lAfaB",
+  "tags": []
+}

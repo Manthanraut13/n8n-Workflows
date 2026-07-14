@@ -1,0 +1,636 @@
+{
+  "name": "AI Task Prioritization Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9699e823-bdc3-4583-a3c1-77d0412fd03c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08",
+          "mode": "list",
+          "cachedResultName": "AI Task Prioritization Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Active Tasks",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "96c74642-e646-4165-a728-9906654f9379",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all incoming items\nconst items = $input.all();\n\n// Remove empty / invalid rows (title is mandatory)\nconst tasks = items.filter(item =>\n  item.json.title && item.json.title.trim() !== \"\"\n);\n\n// Normalize each task\nconst normalized = tasks.map(item => {\n  const task = item.json;\n\n  return {\n    json: {\n      row_number: task.row_number,          // preserve original sheet row\n      taskId: task.taskId || null,\n\n      title: task.title.trim(),\n      description: task.description?.trim() || \"No description\",\n\n      deadline: task.deadline || null,\n      estimated_effort: Number(task.estimatedEffort) || null,\n\n      category: task.category?.trim() || \"General\",\n      energy_required: task.energyRequired || \"medium\",\n\n      date_added: task.dateAdded || null,\n      status: \"pending\"\n    }\n  };\n});\n\nreturn normalized;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "1c49128c-8174-4f84-941b-d7921aa45d6a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze and prioritize the following tasks.\n\nTASKS (JSON):\n{{ $json.title }}\n\nINSTRUCTIONS:\n- Evaluate each task independently\n- Assign scores strictly according to the system rules\n- Use today as the reference date for urgency\n- Keep reasoning concise and practical\n- Ensure priority_level matches the defined rules\n\nReturn ONLY the JSON object in the specified format.",
+        "options": {
+          "systemMessage": "=You are a TASK PRIORITIZATION & SCORING ENGINE.\n\nYour responsibility is to evaluate each task independently and assign priority using structured scoring rules.\n\nYou must score each task on a 0–10 scale for the following dimensions:\n\n1. URGENCY\n   - Based only on deadline proximity\n   - 10 = due today or overdue\n   - 5 = due in ~7 days\n   - 0 = no deadline or very far away\n\n2. IMPACT\n   - Contribution to business or organizational goals\n   - 10 = critical business outcome\n   - 0 = optional or negligible value\n\n3. EFFORT (inverse scoring)\n   - Lower effort = higher score\n   - 10 = ~1 hour or less\n   - 5 = ~5 hours\n   - 0 = 20+ hours or unknown large effort\n\n4. STRATEGIC_VALUE\n   - Alignment with long-term strategy\n   - 10 = core strategic initiative\n   - 0 = no strategic relevance\n\nPRIORITY CLASSIFICATION RULES (must follow exactly):\n- HIGH priority:\n  - urgency_score ≥ 7\n  OR\n  - impact_score ≥ 8 AND effort_score ≥ 6\n\n- MEDIUM priority:\n  - urgency_score ≥ 5 AND impact_score ≥ 6\n  OR\n  - effort_score ≥ 7 AND impact_score ≥ 5\n\n- LOW priority:\n  - all remaining tasks\n\nCOMPOSITE_SCORE:\n- Calculate as the rounded average of all four scores\n\nSTRICT CONSTRAINTS:\n- Do NOT invent tasks or fields\n- Do NOT change task names\n- Do NOT compare tasks to each other when scoring\n- Do NOT output markdown\n- Do NOT include explanations outside JSON\n- Output must be valid, machine-readable JSON only\n\nOUTPUT FORMAT MUST MATCH EXACTLY:\n{\n  \"prioritized_tasks\": [\n    {\n      \"task_name\": \"string\",\n      \"priority_level\": \"High | Medium | Low\",\n      \"urgency_score\": number,\n      \"impact_score\": number,\n      \"effort_score\": number,\n      \"strategic_value_score\": number,\n      \"composite_score\": number,\n      \"reasoning\": \"one short sentence explaining the priority\",\n      \"recommendation\": \"Start immediately | Schedule soon | Defer or drop\"\n    }\n  ],\n  \"summary\": {\n    \"high_priority_count\": number,\n    \"medium_priority_count\": number,\n    \"low_priority_count\": number,\n    \"top_3_tasks\": [\n      { \"name\": \"string\", \"reason\": \"string\" }\n    ],\n    \"deferred_tasks\": [\"string\"],\n    \"droppable_tasks\": [\"string\"]\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        -32
+      ],
+      "id": "09707d59-b5cb-410b-bc7c-97088e93e346",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        96
+      ],
+      "id": "89a164cd-9b37-4aa1-a4a2-ea78949b9119",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all incoming items (each contains an AI response)\nconst items = $input.all();\n\n// Today date (ISO, date-only)\nconst timestamp = new Date().toISOString().split(\"T\")[0];\n\nconst results = [];\n\nfor (const item of items) {\n  // AI response comes as a STRING inside `output`\n  if (!item.json.output) {\n    throw new Error(\"Missing AI output in input item\");\n  }\n\n  let aiResponse;\n  try {\n    aiResponse = JSON.parse(item.json.output);\n  } catch (err) {\n    throw new Error(\"AI output is not valid JSON\");\n  }\n\n  // Validate structure\n  if (\n    !aiResponse.prioritized_tasks ||\n    !Array.isArray(aiResponse.prioritized_tasks)\n  ) {\n    throw new Error(\"Invalid AI response structure: prioritized_tasks missing\");\n  }\n\n  // Enrich tasks\n  const enrichedTasks = aiResponse.prioritized_tasks.map((task, idx) => ({\n    rank: idx + 1,\n    task_name: task.task_name,\n    priority_level: task.priority_level,\n    urgency_score: task.urgency_score,\n    impact_score: task.impact_score,\n    effort_score: task.effort_score,\n    strategic_value_score: task.strategic_value_score,\n    composite_score: task.composite_score,\n    reasoning: task.reasoning,\n    recommendation: task.recommendation,\n    date_prioritized: timestamp\n  }));\n\n  // Push ONE output item per input item\n  results.push({\n    json: {\n      tasks: enrichedTasks,\n      summary: aiResponse.summary || {},\n      execution_timestamp: timestamp\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -32
+      ],
+      "id": "313e9d4e-728c-41f4-b525-7911e13159b8",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08",
+          "mode": "list",
+          "cachedResultName": "AI Task Prioritization Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 716136099,
+          "mode": "list",
+          "cachedResultName": "Prioritized Results",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit#gid=716136099"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Rank": "={{ $json.tasks[0].rank }}",
+            "Task Name": "={{ $json.tasks[0].task_name }}",
+            "Priority Level": "={{ $json.tasks[0].priority_level }}",
+            "Urgency Score": "={{ $json.tasks[0].urgency_score }}",
+            "Impact Score": "={{ $json.tasks[0].impact_score }}",
+            "Effort Score": "={{ $json.tasks[0].effort_score }}",
+            "Strategic Value Score": "={{ $json.tasks[0].strategic_value_score }}",
+            "Composite Score": "={{ $json.tasks[0].composite_score }}",
+            "Reasoning": "={{ $json.tasks[0].reasoning }}",
+            "Recommendation": "={{ $json.tasks[0].recommendation }}",
+            "Date Prioritized": "={{ $json.tasks[0].date_prioritized }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Rank",
+              "displayName": "Rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Task Name",
+              "displayName": "Task Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Priority Level",
+              "displayName": "Priority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgency Score",
+              "displayName": "Urgency Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Impact Score",
+              "displayName": "Impact Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Effort Score",
+              "displayName": "Effort Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Strategic Value Score",
+              "displayName": "Strategic Value Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Composite Score",
+              "displayName": "Composite Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date Prioritized",
+              "displayName": "Date Prioritized",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1600,
+        -32
+      ],
+      "id": "7b677084-9a89-416e-bdcb-bf29424d0b6c",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  // Tasks array (already enriched)\n  const tasks = Array.isArray(data.tasks) ? data.tasks : [];\n  const summary = data.summary || {};\n\n  const date =\n    data.execution_timestamp ||\n    tasks[0]?.date_prioritized ||\n    new Date().toISOString().split(\"T\")[0];\n\n  let message = `📋 *Daily Task Prioritization Report*\\n`;\n  message += `Date: ${date}\\n\\n`;\n\n  // ---- Summary ----\n  message += `📊 *Summary*\\n`;\n  message += `🔴 High Priority: ${summary.high_priority_count ?? 0}\\n`;\n  message += `🟡 Medium Priority: ${summary.medium_priority_count ?? 0}\\n`;\n  message += `🟢 Low Priority: ${summary.low_priority_count ?? 0}\\n\\n`;\n\n  // ---- Top tasks ----\n  message += `⭐ *Top Tasks to Focus On*\\n`;\n\n  if (summary.top_3_tasks && summary.top_3_tasks.length > 0) {\n    summary.top_3_tasks.forEach((task, idx) => {\n      message += `${idx + 1}. *${task.name}*\\n   → ${task.reason}\\n`;\n    });\n  } else if (tasks.length > 0) {\n    // Fallback: use top ranked tasks\n    tasks.slice(0, 3).forEach((task, idx) => {\n      message += `${idx + 1}. *${task.task_name}*\\n   → ${task.reasoning}\\n`;\n    });\n  } else {\n    message += `• No tasks available\\n`;\n  }\n\n  // ---- Deferred ----\n  message += `\\n⏸️ *Can Be Deferred*\\n`;\n  if (summary.deferred_tasks && summary.deferred_tasks.length > 0) {\n    summary.deferred_tasks.slice(0, 3).forEach(task => {\n      message += `• ${task}\\n`;\n    });\n  } else {\n    message += `• None\\n`;\n  }\n\n  // ---- Droppable ----\n  message += `\\n🗑️ *Consider Dropping*\\n`;\n  if (summary.droppable_tasks && summary.droppable_tasks.length > 0) {\n    summary.droppable_tasks.slice(0, 3).forEach(task => {\n      message += `• ${task}\\n`;\n    });\n  } else {\n    message += `• None\\n`;\n  }\n\n  message += `\\n📌 Full results saved to Google Sheets.`;\n\n  // 1 input → 1 output\n  results.push({\n    json: {\n      notification_message: message,\n      execution_date: date\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        -144
+      ],
+      "id": "d8ce6c28-a8ce-403f-849c-e9fcbacbbfa8",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "={{ $json.notification_message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2032,
+        -144
+      ],
+      "id": "2a8ad400-4d00-4745-99cd-c10b960a976e",
+      "name": "Send a text message",
+      "webhookId": "388544e7-ed1e-4bfc-968a-f9cffa1544b1",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08",
+          "mode": "list",
+          "cachedResultName": "AI Task Prioritization Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Active Tasks",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iv-urayDawSTa2I93crn8Kb0oh-tu1exOpLYIQWKX08/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "completed",
+            "title": "={{ $('Get row(s) in sheet').item.json.title }}"
+          },
+          "matchingColumns": [
+            "title"
+          ],
+          "schema": [
+            {
+              "id": "taskId",
+              "displayName": "taskId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "deadline",
+              "displayName": "deadline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estimatedEffort",
+              "displayName": "estimatedEffort",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "energyRequired",
+              "displayName": "energyRequired",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dateAdded",
+              "displayName": "dateAdded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1856,
+        32
+      ],
+      "id": "d67a8c8f-fb95-4c35-80a8-91b74961da7d",
+      "name": "update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0a3eb875-bc2e-4fad-92da-cad2a4fe276c",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "pending",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "2635fd1c-b2f2-43ca-a8d0-c434533ada83",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "task are already compeleted",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        80
+      ],
+      "id": "db9d3e1d-0f87-406f-9bcb-04407e6a446c",
+      "name": "Send a text message1",
+      "webhookId": "388544e7-ed1e-4bfc-968a-f9cffa1544b1",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "update row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7f9602ce-f3a2-494e-ae1c-abc54e8ed2dd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "OakTaLSkg3ZrQtfW",
+  "tags": []
+}

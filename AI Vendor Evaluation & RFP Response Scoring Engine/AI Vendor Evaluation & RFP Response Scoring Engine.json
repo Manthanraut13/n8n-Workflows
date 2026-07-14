@@ -1,0 +1,576 @@
+{
+  "name": "AI Vendor Evaluation & RFP Response Scoring Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeSpamTrash": false
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8227275b-b2a5-4c4f-97f1-106b7338f100",
+      "name": "RFP Response Monitor",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n\n  const pdfText = item.json.text || '';\n  const subject = item.json.subject || '';\n  const rawText = pdfText; // ✅ Use extracted PDF text\n\n  // ✅ Extract Vendor Name (priority: PDF → subject → fallback)\n  let vendorName = 'Unknown Vendor';\n\n  const vendorFromPDF = rawText.match(/Vendor Name[:\\s]+(.+)/i);\n  if (vendorFromPDF) {\n    vendorName = vendorFromPDF[1].trim();\n  } else {\n    const vendorMatch = subject.match(/RFP Response[:\\s-]+(.+?)(?:\\||$)/i);\n    if (vendorMatch) {\n      vendorName = vendorMatch[1].trim();\n    }\n  }\n\n  // ✅ Helper to extract multi-line sections\n  const extractSection = (startLabel, endLabel) => {\n    const regex = new RegExp(\n      `${startLabel}[\\\\s\\\\S]*?:([\\\\s\\\\S]*?)(?=${endLabel}|$)`,\n      'i'\n    );\n    const match = rawText.match(regex);\n    return match ? match[1].replace(/\\n+/g, ' ').trim() : null;\n  };\n\n  // ✅ Extract structured fields\n  const pricing = extractSection('1\\\\. Pricing', '2\\\\.');\n  const capabilities = extractSection('2\\\\. Capabilities', '3\\\\.');\n  const sla = extractSection('3\\\\. SLA', '4\\\\.');\n  const compliance = extractSection('4\\\\. Compliance', '5\\\\.');\n  const references = extractSection('5\\\\. References', '6\\\\.');\n\n  items.push({\n    json: {\n      vendor_name: vendorName,\n      vendor_email: item.json.vendor_email || null,\n      received_date: item.json.received_date || null,\n      message_id: item.json.message_id || null,\n\n      raw_response: rawText,\n\n      extracted_fields: {\n        pricing,\n        capabilities,\n        sla,\n        compliance,\n        references\n      }\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "cdefc6a0-f096-48ab-929f-5974a095ffe3",
+      "name": "Response Normalizer"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Evaluate this vendor RFP response:\n\nVENDOR: {{ $json.vendor_data.vendor_name }}\nEMAIL: {{ $('RFP Response Monitor').item.json.headers.from }}\n\nCOMPLETE RESPONSE TEXT:{{ $('Response Normalizer').item.json.raw_response }}\n\nEXTRACTED FIELDS (if available):\n- Pricing: {{ $('Response Normalizer').item.json.extracted_fields.pricing || 'Not Found' }}\n- SLA: {{ $('Response Normalizer').item.json.extracted_fields.sla || 'Not Found' }}\n- Compliance: {{ $('Response Normalizer').item.json.extracted_fields.compliance || 'Not Found' }}\n- References: {{ $('Response Normalizer').item.json.extracted_fields.references || 'Not Found' }}\n\nINSTRUCTIONS:\n1. Carefully read the entire response\n2. Score each dimension (0-10) using the rubric in your system prompt\n3. Calculate the weighted total score\n4. List ALL missing critical fields\n5. Flag any risks or concerns\n6. Provide exactly 2 sentences summarizing the vendor's strengths/weaknesses\n\nOUTPUT FORMAT (STRICT JSON - NO MARKDOWN):\n{\n  \"vendor_name\": \"string\",\n  \"scores\": {\n    \"price\": number,\n    \"capabilities\": number,\n    \"compliance\": number,\n    \"sla\": number,\n    \"references\": number\n  },\n  \"total_score\": number,\n  \"missing_fields\": [\"array of missing fields\"],\n  \"risk_flags\": [\"array of risk items\"],\n  \"summary\": \"string\",\n  \"raw_scores_justification\": {\n    \"price\": \"brief reason for score\",\n    \"capabilities\": \"brief reason for score\",\n    \"compliance\": \"brief reason for score\",\n    \"sla\": \"brief reason for score\",\n    \"references\": \"brief reason for score\"\n  }\n}",
+        "options": {
+          "systemMessage": "=You are an expert procurement and vendor evaluation specialist with 15+ years of experience in enterprise software acquisition, contract negotiation, and vendor management. You have evaluated over 500 RFPs across industries including SaaS, infrastructure, consulting, and professional services.\n\nEVALUATION FRAMEWORK:\nYou score vendors across 5 critical dimensions using a 0-10 scale:\n\n1. PRICE (Weight: 25%)\n   - Scoring Rubric:\n     * 0-3: Significantly overpriced, poor value proposition\n     * 4-6: Market-rate pricing, acceptable ROI\n     * 7-8: Competitive pricing, good value\n     * 9-10: Exceptional value, transparent pricing model\n   - Consider: Total cost of ownership, hidden fees, scalability costs\n\n2. CAPABILITIES (Weight: 30%)\n   - Scoring Rubric:\n     * 0-3: Missing critical features, immature product\n     * 4-6: Meets basic requirements, standard features\n     * 7-8: Strong feature set, competitive differentiation\n     * 9-10: Industry-leading capabilities, innovation\n   - Consider: Technical architecture, integrations, roadmap, scalability\n\n3. COMPLIANCE (Weight: 20%)\n   - Scoring Rubric:\n     * 0-3: No certifications, compliance gaps\n     * 4-6: Basic compliance (1-2 certifications)\n     * 7-8: Strong compliance posture (SOC2, ISO27001)\n     * 9-10: Comprehensive compliance (SOC2 Type II, ISO27001, GDPR, HIPAA)\n   - Consider: Security audits, data privacy, industry-specific regulations\n\n4. SLA (Weight: 15%)\n   - Scoring Rubric:\n     * 0-3: No SLA or vague commitments\n     * 4-6: Basic SLA (95-99% uptime, business hours support)\n     * 7-8: Strong SLA (99.9% uptime, 24/7 support, penalties)\n     * 9-10: Enterprise-grade SLA (99.99% uptime, dedicated support, credits)\n   - Consider: Uptime guarantees, response times, escalation paths, financial penalties\n\n5. REFERENCES (Weight: 10%)\n   - Scoring Rubric:\n     * 0-3: No references or irrelevant clients\n     * 4-6: 1-2 references from small companies\n     * 7-8: 3+ references including similar-sized companies\n     * 9-10: Multiple enterprise references in same industry\n   - Consider: Client size, industry relevance, tenure, success stories\n\nWEIGHTED SCORING FORMULA:\nTotal Score = (Price × 0.25) + (Capabilities × 0.30) + (Compliance × 0.20) + (SLA × 0.15) + (References × 0.10)\n\nCRITICAL FIELD DETECTION:\nYou must identify if ANY of these are missing or vague:\n- Pricing information (must include specific numbers)\n- Feature/capability details\n- Compliance certifications (must name specific certs)\n- SLA commitments (must include uptime %)\n- Client references (must name companies or provide contacts)\n\nRISK FLAG CRITERIA:\nFlag if you detect:\n- Vague or conditional pricing\n- Missing critical compliance certifications for industry\n- No SLA or weak uptime guarantees (<99%)\n- No references or only small/unknown clients\n- Lack of security documentation\n- Unclear contract terms\n\nOUTPUT REQUIREMENTS:\n- Respond ONLY with valid JSON\n- No markdown formatting (no ```json```)\n- No explanatory text before or after JSON\n- All scores must be integers 0-10\n- Total score must be calculated using weighted formula\n- Summary must be exactly 2 sentences, professional tone"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "78ac06c1-cb4a-47b7-b64b-77713aec725a",
+      "name": "AI Vendor Evaluator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n  const systemPrompt = `You are an expert procurement and vendor evaluation specialist with 15+ years of experience. Your role is to objectively score vendor RFP responses across multiple dimensions.\n\nEVALUATION CRITERIA:\n1. PRICE (0-10): Cost-effectiveness, value for money, transparent pricing\n2. CAPABILITIES (0-10): Technical features, scalability, innovation\n3. COMPLIANCE (0-10): Certifications (SOC2, ISO27001, GDPR, HIPAA)\n4. SLA (0-10): Uptime guarantees, support responsiveness, penalties\n5. REFERENCES (0-10): Quality and relevance of client references\n\nSCORING GUIDELINES:\n- 0-3: Poor/Unacceptable\n- 4-6: Adequate/Meets minimum requirements\n- 7-8: Good/Competitive\n- 9-10: Excellent/Industry-leading\n\nWEIGHTED FORMULA:\nTotal Score = (Price × 0.25) + (Capabilities × 0.30) + (Compliance × 0.20) + (SLA × 0.15) + (References × 0.10)\n\nCRITICAL: You MUST respond with ONLY valid JSON. No markdown, no explanations outside JSON.`;\n\n  const userPrompt = `Evaluate this vendor RFP response:\n\nVENDOR: ${item.json.vendor_name}\nEMAIL: ${item.json.vendor_email}\n\nRESPONSE TEXT:\n${item.json.raw_response}\n\nEXTRACTED FIELDS (if available):\n- Pricing: ${item.json.extracted_fields.pricing || 'Not found'}\n- Features: ${item.json.extracted_fields.features || 'Not found'}\n- SLA: ${item.json.extracted_fields.sla || 'Not found'}\n- Compliance: ${item.json.extracted_fields.compliance || 'Not found'}\n- References: ${item.json.extracted_fields.references || 'Not found'}\n\nINSTRUCTIONS:\n1. Score each dimension (0-10) based on the criteria\n2. Calculate weighted total score\n3. Identify ALL missing critical fields\n4. Flag any risks (e.g., no compliance certs, vague SLA, no references)\n5. Provide 2-sentence summary\n\nOUTPUT FORMAT (STRICT JSON):\n{\n  \"vendor_name\": \"string\",\n  \"scores\": {\n    \"price\": number,\n    \"capabilities\": number,\n    \"compliance\": number,\n    \"sla\": number,\n    \"references\": number\n  },\n  \"total_score\": number,\n  \"missing_fields\": [\"array of missing fields\"],\n  \"risk_flags\": [\"array of risk items\"],\n  \"summary\": \"string\",\n  \"raw_scores_justification\": {\n    \"price\": \"brief reason\",\n    \"capabilities\": \"brief reason\",\n    \"compliance\": \"brief reason\",\n    \"sla\": \"brief reason\",\n    \"references\": \"brief reason\"\n  }\n}`;\n\n  items.push({\n    json: {\n      messages: [\n        {\n          role: \"system\",\n          content: systemPrompt\n        },\n        {\n          role: \"user\",\n          content: userPrompt\n        }\n      ],\n      vendor_data: item.json // Pass through for later use\n    }\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "5ff690ab-3524-49f5-a2a5-c3a66d274037",
+      "name": "Prepare AI Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nfor (const item of $input.all()) {\n  try {\n    const aiResponse = JSON.parse(item.json.choices[0].message.content);\n    const vendorData = item.json.vendor_data || {};\n    \n    items.push({\n      json: {\n        vendor_name: aiResponse.vendor_name,\n        vendor_email: vendorData.vendor_email,\n        received_date: vendorData.received_date,\n        message_id: vendorData.message_id,\n        price_score: aiResponse.scores.price,\n        capability_score: aiResponse.scores.capabilities,\n        compliance_score: aiResponse.scores.compliance,\n        sla_score: aiResponse.scores.sla,\n        reference_score: aiResponse.scores.references,\n        total_score: aiResponse.total_score,\n        missing_fields: aiResponse.missing_fields,\n        risk_flags: aiResponse.risk_flags,\n        summary: aiResponse.summary,\n        justifications: aiResponse.raw_scores_justification,\n        timestamp: new Date().toISOString()\n      }\n    });\n  } catch (error) {\n    // Error handling - flag for manual review\n    items.push({\n      json: {\n        vendor_name: 'PARSING_ERROR',\n        error: error.message,\n        raw_response: item.json,\n        needs_manual_review: true,\n        timestamp: new Date().toISOString()\n      }\n    });\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "7b3c1425-f0c1-4d03-a3c7-2c4ea987e84c",
+      "name": "Extract Scoring Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\n\nconst cleanedVendors = [];\n\nfor (const item of allItems) {\n  try {\n    let aiData = null;\n\n    if (!item.json.needs_manual_review && item.json.total_score !== undefined) {\n      aiData = item.json;\n    } else if (item.json.raw_response?.output) {\n      let raw = item.json.raw_response.output;\n      raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();\n      aiData = JSON.parse(raw);\n    }\n\n    if (!aiData) continue;\n\n    cleanedVendors.push({\n      vendor_name: aiData.vendor_name || 'Unknown',\n      vendor_email: item.json.vendor_email || null,\n      received_date: item.json.received_date || null,\n      message_id: item.json.message_id || null,\n\n      price_score: aiData.scores?.price ?? null,\n      capability_score: aiData.scores?.capabilities ?? null,\n      compliance_score: aiData.scores?.compliance ?? null,\n      sla_score: aiData.scores?.sla ?? null,\n      reference_score: aiData.scores?.references ?? null,\n\n      total_score: Number(aiData.total_score) || 0,\n      missing_fields: aiData.missing_fields || [],\n      risk_flags: aiData.risk_flags || [],\n      summary: aiData.summary || '',\n      justifications: aiData.raw_scores_justification || {},\n      timestamp: new Date().toISOString()\n    });\n\n  } catch (err) {\n    continue;\n  }\n}\n\n// Sort\ncleanedVendors.sort((a, b) => b.total_score - a.total_score);\n\n// Add rank\ncleanedVendors.forEach((v, index) => {\n  v.rank = index + 1;\n  v.rank_label =\n    index === 0 ? '🥇 Top Choice' :\n    index === 1 ? '🥈 Runner-up' :\n    index === 2 ? '🥉 Third Place' :\n    `#${index + 1}`;\n});\n\n// Summary\nconst totalVendors = cleanedVendors.length;\n\nconst averageScore = totalVendors > 0\n  ? (\n      cleanedVendors.reduce((sum, v) => sum + v.total_score, 0) /\n      totalVendors\n    ).toFixed(2)\n  : 0;\n\n// ✅ SINGLE OUTPUT OBJECT\nreturn [\n  {\n    json: {\n      vendors: cleanedVendors,\n      summary: {\n        total_vendors: totalVendors,\n        average_score: averageScore,\n        top_vendor: cleanedVendors[0]?.vendor_name || null,\n        top_score: cleanedVendors[0]?.total_score || null,\n        vendors_with_risks: cleanedVendors.filter(v => (v.risk_flags || []).length > 0).length,\n        vendors_with_missing_data: cleanedVendors.filter(v => (v.missing_fields || []).length > 0).length,\n        evaluation_date: new Date().toISOString()\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        336
+      ],
+      "id": "8fb42594-a278-4b68-ab42-8e827fc362af",
+      "name": "Vendor Ranking Engine"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "344cbbea-cd2a-48ef-bd8c-f259cafb536c",
+              "leftValue": "={{ $json.missing_fields }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        336
+      ],
+      "id": "95990e99-a6f0-4a4c-9d82-2c80b49923b3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = [];\n\nconst inputItems = $input.all();\n\nfor (const item of inputItems) {\n\n  const vendors = item.json.vendors || [];\n\n  for (const vendor of vendors) {\n\n    const missingFields = vendor.missing_fields || [];\n    const riskFlags = vendor.risk_flags || [];\n\n    let issues = [];\n\n    // ✅ Priority: missing_fields\n    if (missingFields.length > 0) {\n      issues = missingFields;\n    } \n    // ✅ Fallback: risk_flags\n    else if (riskFlags.length > 0) {\n      issues = riskFlags.map(r => `Clarification needed: ${r}`);\n    } \n    // ✅ Fallback: generic\n    else {\n      issues = [\"General clarification required on submitted proposal\"];\n    }\n\n    const hasEmail = !!vendor.vendor_email;\n\n    const emailBody = `Dear ${vendor.vendor_name} Team,\n\nThank you for submitting your RFP response.\n\nWe need clarification on the following:\n\n${issues.map((field, i) => `${i + 1}. ${field}`).join('\\n')}\n\nPlease respond within 3 business days.\n\nBest regards,  \nProcurement Team`;\n\n    output.push({\n      json: {\n        to: vendor.vendor_email || \"MISSING_EMAIL\",\n        subject: `RFP Follow-up - ${vendor.vendor_name}`,\n        body: emailBody,\n        vendor_name: vendor.vendor_name,\n        issues_requested: issues,\n\n        // 🔥 control flags\n        can_send_email: hasEmail,\n        needs_manual_review: !hasEmail,\n\n        // optional context\n        rank: vendor.rank,\n        total_score: vendor.total_score\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        320
+      ],
+      "id": "5b1d2413-38d1-4fa2-aa94-29d711ec3b34",
+      "name": "Follow-up Email Generator"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        624,
+        320
+      ],
+      "id": "e98aa85b-9bd6-4543-8c46-d844b80db9a5",
+      "name": "Gmail Follow-up Sender",
+      "webhookId": "dd6a3518-f5ae-47e0-acc2-e6527867684f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1lpBJaPy3baUtA3qq4EBHKSK0kyrDRxZeJp-yIRCi3vI",
+          "mode": "list",
+          "cachedResultName": "AI Vendor Evaluation & RFP Response Scoring Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lpBJaPy3baUtA3qq4EBHKSK0kyrDRxZeJp-yIRCi3vI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "VendorScores",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lpBJaPy3baUtA3qq4EBHKSK0kyrDRxZeJp-yIRCi3vI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "vendor_name": "={{ $('Follow-up Email Generator').item.json.vendor_name }}",
+            "price_score": "={{ $('If').item.json.vendors[0].price_score }}",
+            "capability_score": "={{ $('If').item.json.vendors[0].capability_score }}",
+            "compliance_score": "={{ $('If').item.json.vendors[0].compliance_score }}",
+            "sla_score": "={{ $('If').item.json.vendors[0].sla_score }}",
+            "reference_score": "={{ $('If').item.json.vendors[0].reference_score }}",
+            "total_score": "={{ $('If').item.json.vendors[0].total_score }}",
+            "missing_fields": "={{ $('If').item.json.vendors[0].missing_fields }}",
+            "risk_flags": "={{ $('If').item.json.vendors[0].risk_flags[0] }}",
+            "summary": "={{ $('If').item.json.vendors[0].summary }}",
+            "rank": "={{ $('If').item.json.vendors[0].rank }}",
+            "vendor_email": "={{ $('RFP Response Monitor').item.json.headers.from }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "vendor_name",
+              "displayName": "vendor_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "vendor_email",
+              "displayName": "vendor_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_score",
+              "displayName": "price_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "capability_score",
+              "displayName": "capability_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "compliance_score",
+              "displayName": "compliance_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sla_score",
+              "displayName": "sla_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reference_score",
+              "displayName": "reference_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_score",
+              "displayName": "total_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rank",
+              "displayName": "rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "missing_fields",
+              "displayName": "missing_fields",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risk_flags",
+              "displayName": "risk_flags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        832,
+        320
+      ],
+      "id": "62c88556-f383-4a8b-864d-122228c3e1b6",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allVendors = $input.all();\n\n// Get top 3 vendors\nconst topVendors = allVendors\n  .filter(v => v.json.rank && v.json.rank <= 3)\n  .sort((a, b) => a.json.rank - b.json.rank);\n\n// Get summary\nconst summary = allVendors.find(v => v.json.total_vendors !== undefined);\n\nconst message = {\n  blocks: [\n    {\n      type: \"header\",\n      text: {\n        type: \"plain_text\",\n        text: \"🎯 RFP Evaluation Complete - Vendor Shortlist\"\n      }\n    },\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `*Total Vendors Evaluated:* ${summary?.json.total_vendors || topVendors.length}\\n*Average Score:* ${summary?.json.average_score || 'N/A'}\\n*Evaluation Date:* ${new Date().toLocaleDateString()}`\n      }\n    },\n    {\n      type: \"divider\"\n    }\n  ]\n};\n\n// Add each top vendor\ntopVendors.forEach(vendor => {\n\n  // ✅ Normalize risk_flags safely\n  let riskFlags = vendor.json.risk_flags;\n\n  if (!riskFlags) {\n    riskFlags = [];\n  } else if (typeof riskFlags === 'string') {\n    riskFlags = [riskFlags];\n  } else if (!Array.isArray(riskFlags)) {\n    riskFlags = [];\n  }\n\n  const riskText = riskFlags.length > 0\n    ? `\\n\\n⚠️ *Risks:* ${riskFlags.join(', ')}`\n    : '';\n\n  message.blocks.push(\n    {\n      type: \"section\",\n      text: {\n        type: \"mrkdwn\",\n        text: `*${vendor.json.rank_label} ${vendor.json.vendor_name}*\\n*Total Score:* ${vendor.json.total_score}/10\\n\\n*Breakdown:*\\n• Price: ${vendor.json.price_score}/10\\n• Capabilities: ${vendor.json.capability_score}/10\\n• Compliance: ${vendor.json.compliance_score}/10\\n• SLA: ${vendor.json.sla_score}/10\\n• References: ${vendor.json.reference_score}/10\\n\\n*Summary:* ${vendor.json.summary}${riskText}`\n      }\n    },\n    {\n      type: \"divider\"\n    }\n  );\n});\n\n// Footer\nmessage.blocks.push({\n  type: \"context\",\n  elements: [\n    {\n      type: \"mrkdwn\",\n      text: \"📊 Full details available in Google Sheets | ⚡ Powered by n8n + OpenRouter AI\"\n    }\n  ]\n});\n\nreturn [{\n  json: {\n    channel: '#rfp-evaluations',\n    text: 'RFP Evaluation Complete',\n    blocks: JSON.stringify(message.blocks)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        320
+      ],
+      "id": "09f6b6ca-6f87-47b0-bae8-cbcc4d6489a9",
+      "name": "Slack Message Builder1"
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "messageType": "block",
+        "blocksUi": "={{ $json.blocks }}",
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        320
+      ],
+      "id": "991161f4-a560-41fb-bb95-cfe28f7c1752",
+      "name": "Slack Notifier",
+      "webhookId": "16a72988-dc57-4af2-ad2c-603cbce7c5be",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        832,
+        160
+      ],
+      "id": "4964c0e3-1e97-40ab-aebd-7ced4334c238",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "96ed4b59-36a6-4d57-b46c-092b4a7fa5af",
+      "name": "Extract from File"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RFP Response Monitor": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Response Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Vendor Evaluator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Vendor Evaluator": {
+      "main": [
+        [
+          {
+            "node": "Extract Scoring Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Scoring Data": {
+      "main": [
+        [
+          {
+            "node": "Vendor Ranking Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendor Ranking Engine": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Follow-up Email Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-up Email Generator": {
+      "main": [
+        [
+          {
+            "node": "Gmail Follow-up Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Follow-up Sender": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Slack Message Builder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Message Builder1": {
+      "main": [
+        [
+          {
+            "node": "Slack Notifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Vendor Evaluator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Response Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "450bdd47-6e42-4344-9204-5a2198334c39",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "CDzUKUoIblwET4tl",
+  "tags": []
+}

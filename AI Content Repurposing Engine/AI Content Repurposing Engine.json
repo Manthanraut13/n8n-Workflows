@@ -1,0 +1,1046 @@
+{
+  "name": "AI Content Repurposing Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-repurpose",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        96,
+        -624
+      ],
+      "id": "6f50041d-fe56-4a7f-aa83-2589a2ee6786",
+      "name": "Webhook",
+      "webhookId": "3d791f80-3ac7-4a16-ae01-0eb7df716045"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -464
+      ],
+      "id": "88519fd5-9413-415f-90bc-15feba96e46a",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the content below and extract structured insights.\n\nCONTENT TO ANALYZE:\n{{ $json.body.content }}\n\nCONTEXT:\nTOPIC: {{ $json.body.topic }}\nTONE: {{ $json.body.tone }}\nAUDIENCE: {{ $json.body.audience }}\n\nYOUR TASK:\nAnalyze the content and return ONLY valid JSON in exactly the following format:\n\n{\n\"main_theme\": \"One sentence summarizing the core message\",\n\"key_points\": [\"point 1\", \"point 2\", \"point 3\", \"point 4\", \"point 5\"],\n\"hooks\": [\"attention-grabbing angle 1\", \"angle 2\", \"angle 3\"],\n\"sentiment\": \"educational | inspirational | practical | thought-provoking\"\n}\n\nCRITICAL RULES:\n\nDo NOT include text outside the JSON object\n\nKeep points concise and audience-relevant\n\nBase sentiment on the dominant intent of the conten",
+        "options": {
+          "systemMessage": "=You are a professional content analysis and synthesis expert.\nYour role is to understand written content, identify its core message, and extract structured insights that are useful for creators, marketers, and analysts.\n\nGuidelines:\n\nFocus on the central idea and supporting arguments\n\nIdentify clear, concise key points\n\nExtract hooks that could capture audience attention\n\nDetermine the dominant sentiment or intent of the content\n\nYou must return ONLY valid JSON that strictly follows the requested structure.\nDo NOT include explanations, markdown, or any text outside the JSON object."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        720,
+        -640
+      ],
+      "id": "9feb0f59-3f02-4cc3-b206-03ebd1e088c1",
+      "name": "AI Agent - Content Analyzer"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        -1120
+      ],
+      "id": "c4570abd-e0ce-4627-b48f-46ae6fef6ada",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a LinkedIn post using the information below.\n\nORIGINAL CONTENT:\n{{ $('IF - Content Length Check').item.json.body.content }}\n\nCONTENT ANALYSIS:\nMain Theme: {{ $json.main_theme }}\nKey Points: {{ $json.key_points.join(', ') }}\nBest Hooks: {{ $json.hooks.join(', ') }}\n\nCONTEXT & REQUIREMENTS:\n\nTarget audience: {{ $('IF - Content Length Check').item.json.body.audience}}\n\nWriting tone/style:  {{ $('IF - Content Length Check').item.json.body.tone}}\n\nStart with one compelling hook from the analysis\n\nKeep total length between 150–250 words\n\nUse 2–3 paragraph breaks for readability\n\nMaintain a professional, LinkedIn-appropriate voice\n\nEnd with a thought-provoking question or clear call-to-action\n\nDo NOT include hashtags in the main body\n\nAdd 3–5 relevant hashtags at the very end on a new line\n\nYOUR OUTPUT:\nReturn ONLY valid JSON in the following exact format:\n\n{\n\"linkedin_post\": \"Full LinkedIn post text here with paragraph breaks preserved\"\n}\n\nCRITICAL RULES:\n\nNo extra text outside JSON\n\nNo markdown\n\nNo emojis unless implied by tone\n\nHashtags only on the final line",
+        "options": {
+          "systemMessage": "=You are a senior LinkedIn content strategist and professional copywriter.\nYour expertise is turning structured insights into high-quality LinkedIn posts that are clear, engaging, and credible.\n\nGuidelines:\n\nWrite in a professional, human, and natural tone\n\nPrioritize clarity over hype\n\nUse short paragraphs for scannability\n\nMaintain alignment with the target audience and tone\n\nAvoid hashtags inside the main content body\n\nYou must return ONLY valid JSON.\nDo NOT include explanations, markdown, or any text outside the JSON object."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1312,
+        -1280
+      ],
+      "id": "5467a85f-2c31-4d14-9766-acb68953c92d",
+      "name": "AI Agent - LinkedIn Generator"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        -784
+      ],
+      "id": "eb1018d4-0d5b-4731-8c1a-572913c4e58c",
+      "name": "OpenRouter Chat Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create an engaging Twitter thread based on the inputs below.\n\nORIGINAL CONTENT:\n{{ $('IF - Content Length Check').item.json.body.content }}\n\nCONTENT ANALYSIS:\nMain Theme: {{ $json.main_theme }}\nKey Points: {{ $json.key_points[0] }}{{ $json.key_points[1] }}{{ $json.key_points[2] }}{{ $json.key_points[3] }}{{ $json.key_points[4] }}\nTHREAD REQUIREMENTS:\n- Create exactly 5 to 7 tweets\n- Tweet 1 must be a strong hook that encourages readers to continue\n- Tweets 2–6 should each focus on ONE clear idea derived from the key points\n- Final tweet must include a clear conclusion or call-to-action\n- Each tweet must be no more than 280 characters\n- Use line breaks and emojis sparingly to improve readability\n- Each tweet should provide standalone value\n- Ensure smooth, logical flow across the thread\n- Tone: {{ $('IF - Content Length Check').item.json.body.tone}}\n\n\nReturn ONLY valid JSON in this exact format:\n{\n  \"twitter_thread\": [\n    \"Tweet 1 text\",\n    \"Tweet 2 text\",\n    \"Tweet 3 text\",\n    \"Tweet 4 text\",\n    \"Tweet 5 text\"\n  ]\n}\n\nCRITICAL:\n- The array must contain EXACTLY 5–7 tweets\n- Do not include any text outside the JSON object\n",
+        "options": {
+          "systemMessage": "=You are a Twitter (X) content expert specializing in high-engagement educational threads.\nYour job is to transform analytical content into clear, compelling Twitter threads.\nYou must follow all structural constraints exactly and return ONLY valid JSON.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1296,
+        -960
+      ],
+      "id": "0123ea18-04fc-4f6c-8ccd-ffa2856b55d9",
+      "name": "AI Agent - Twitter Thread Generator"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        -416
+      ],
+      "id": "412ac6a2-3979-4e1e-8819-1054fee9c497",
+      "name": "OpenRouter Chat Model3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a compelling Instagram caption based on the inputs below.\n\nORIGINAL CONTENT:\n{{ $('IF - Content Length Check').item.json.body.content }}\n\nCONTENT CONTEXT:\nMain Theme: {{ $json.main_theme }}\n\nCAPTION REQUIREMENTS:\n- 100–150 words maximum\n- Start with a strong, attention-grabbing first line\n- Use 1–2 emojis naturally (no emoji overload)\n- Write in short, punchy sentences\n- Add 2–3 line breaks for visual spacing\n- Clearly communicate the value or takeaway for the reader\n- End with a clear engagement question or call-to-action\n- Tone: {{ $('IF - Content Length Check').item.json.body.tone}}, but slightly more casual and conversational\n- Add 10–15 relevant hashtags at the very end after a line break\n\nReturn ONLY valid JSON in this exact format:\n{\n  \"instagram_caption\": \"Complete Instagram caption with line breaks and hashtags\"\n}\n\nCRITICAL:\n- Do NOT include explanations, markdown, or extra text\n- Preserve line breaks inside the caption string\n",
+        "options": {
+          "systemMessage": "=You are an Instagram content creator who specializes in high-engagement, educational captions.\nYou know how to turn analytical ideas into clear, scroll-stopping Instagram copy.\nFollow all formatting rules strictly and return ONLY valid JSON.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1296,
+        -624
+      ],
+      "id": "c8a75205-eccf-4276-8ec7-fe2f1e3f8aed",
+      "name": "AI Agent - Instagram Caption Generator"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        -96
+      ],
+      "id": "765af56d-164d-4885-a70e-d6667b26b9e3",
+      "name": "OpenRouter Chat Model4",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create an email-friendly newsletter based on the inputs below.\n\nORIGINAL CONTENT:\n{{ $('IF - Content Length Check').item.json.body.content }}\n\nCONTENT ANALYSIS:\nMain Theme:  {{ $json.main_theme }}\nKey Points: {{ $json.key_points[0] }}{{ $json.key_points[1] }}{{ $json.key_points[2] }}{{ $json.key_points[3] }}{{ $json.key_points[4] }}\n\nNEWSLETTER REQUIREMENTS:\n- Write a compelling subject line (50–60 characters)\n- Start with a personal, conversational greeting\n- 200–300 words total\n- Organize content into short, readable paragraphs\n- Include the main insight and 3–4 clear key takeaways\n- Use short subheadings for scannability\n- End with a clear call-to-action\n- Tone: warm and {{ $('IF - Content Length Check').item.json.body.tone}}\n- Target audience: {{ $('IF - Content Length Check').item.json.body.audience}}\n\nReturn ONLY valid JSON in this exact format:\n{\n  \"email_newsletter\": {\n    \"subject\": \"Subject line text here\",\n    \"body\": \"Full email body with line breaks preserved\"\n  }\n}\n\nCRITICAL:\n- Do NOT include markdown, explanations, or extra text\n- Preserve line breaks inside the body string\n- Ensure the output is valid, parseable JSON\n\n\n\n\n",
+        "options": {
+          "systemMessage": "=You are a professional email newsletter writer.\nYou specialize in turning complex ideas into clear, engaging, email-friendly narratives.\nYour writing feels personal, warm, and trustworthy while remaining structured and skimmable.\nReturn ONLY valid JSON and follow formatting rules exactly.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1312,
+        -288
+      ],
+      "id": "e953f139-0ece-4ec4-97fb-c2e8bfc5f33d",
+      "name": "AI Agent - Email Newsletter Generator"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-9b-v2:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        208
+      ],
+      "id": "83f3bdbf-fcea-41da-b664-e18d031b1e86",
+      "name": "OpenRouter Chat Model5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract reusable key takeaways from the content below.\n\nORIGINAL CONTENT:\n{{ $('IF - Content Length Check').item.json.body.content }}\n\nKEY INSIGHTS FROM ANALYSIS:\n{{ $json.key_points[0] }}{{ $json.key_points[1] }}{{ $json.key_points[2] }}{{ $json.key_points[3] }}{{ $json.key_points[4] }}\n\n\nREQUIREMENTS:\n- Extract 5–8 key takeaways\n- Each takeaway must be a complete, actionable insight\n- Write each as a concise bullet (15–25 words)\n- Each takeaway should stand alone as a social post or quote\n- Capture the core value and intent of the original content\n- Make the takeaways memorable and shareable\n\nReturn ONLY valid JSON in this exact format:\n{\n  \"key_takeaways\": [\n    \"Takeaway 1 here\",\n    \"Takeaway 2 here\",\n    \"Takeaway 3 here\",\n    \"Takeaway 4 here\",\n    \"Takeaway 5 here\"\n  ]\n}\n\nCRITICAL:\n- Include exactly 5–8 items in the array\n- Do NOT use markdown or numbered lists\n- Ensure valid, parseable JSON only\n",
+        "options": {
+          "systemMessage": "=You are a content strategist and insight distillation expert.\nYou specialize in extracting concise, high-impact takeaways that are reusable across social media, newsletters, and presentations.\nYour outputs are clear, actionable, memorable, and easy to repurpose.\nReturn ONLY valid JSON. Do not include any explanations or extra text.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1328,
+        16
+      ],
+      "id": "cfd7ac1b-e127-4c50-a933-5aa4eeef8135",
+      "name": "AI Agent - Key Takeaways Extractor"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2000,
+        -672
+      ],
+      "id": "dfdc8b0e-095c-4a6a-8b90-5f6f7f297e32",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f3ef8055-3682-42c0-9d03-18d8ce3fae01",
+              "name": "body.content",
+              "value": "={{ $json.body.content }}",
+              "type": "string"
+            },
+            {
+              "id": "89e1868f-09b4-4a31-8c64-436f325d8e13",
+              "name": "body.topic",
+              "value": "={{ $json.body.topic }}",
+              "type": "string"
+            },
+            {
+              "id": "2b45b912-1d93-4777-b7b1-cdcade6b50cf",
+              "name": "body.audience",
+              "value": "={{ $json.body.audience }}",
+              "type": "string"
+            },
+            {
+              "id": "569fdc78-ab75-4c6b-9bb1-f146d0bc03dd",
+              "name": "body.tone",
+              "value": "={{ $json.body.tone }}",
+              "type": "string"
+            },
+            {
+              "id": "97f16a13-3106-47dd-979d-f660dfdc927c",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "dc17a304-1d1b-4766-aa61-0d34fab1b612",
+              "name": "content_length",
+              "value": "={{ $json.body.content.length }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        -624
+      ],
+      "id": "d397f5d7-fa1a-4bf2-98fb-5dc37c0a0b9c",
+      "name": "Set - Normalize Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6fe952cb-8124-484f-bb43-d18c045a87f7",
+              "leftValue": "={{ $json.body.content.length }}",
+              "rightValue": 500,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        512,
+        -624
+      ],
+      "id": "71411f3d-ee51-461a-8f09-26007bd6928f",
+      "name": "IF - Content Length Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get first item (AI response)\nconst raw = items[0]?.json?.output;\n\n// Fallback empty object\nlet parsed = {};\n\ntry {\n  parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  parsed = {};\n}\n\n// Return structured fields\nreturn [\n  {\n    json: {\n      main_theme: parsed.main_theme || '',\n      key_points: Array.isArray(parsed.key_points) ? parsed.key_points : [],\n      hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],\n      sentiment: parsed.sentiment || ''\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        -640
+      ],
+      "id": "53306115-81ed-4b8a-a1eb-5bf436206c1c",
+      "name": "Parse output"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the raw AI output string\nconst rawOutput = $json.output;\n\n// Safety check\nif (!rawOutput || typeof rawOutput !== 'string') {\n  return {\n    json: {\n      linkedin_post: ''\n    }\n  };\n}\n\nlet parsed;\n\n// Try parsing JSON safely\ntry {\n  parsed = JSON.parse(rawOutput);\n} catch (err) {\n  // Fallback if parsing fails\n  return {\n    json: {\n      linkedin_post: rawOutput\n    }\n  };\n}\n\n// Return normalized output\nreturn {\n  json: {\n    linkedin_post: parsed.linkedin_post || ''\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        -1280
+      ],
+      "id": "eefb6fc2-935f-49ac-a646-5373345f6eb7",
+      "name": "Parse output1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw AI output\nconst rawOutput = $json.output;\n\n// Safety fallback\nif (!rawOutput || typeof rawOutput !== 'string') {\n  return {\n    json: {\n      twitter_thread: []\n    }\n  };\n}\n\nlet parsed;\n\n// Safely parse JSON string\ntry {\n  parsed = JSON.parse(rawOutput);\n} catch (err) {\n  return {\n    json: {\n      twitter_thread: []\n    }\n  };\n}\n\n// Ensure correct structure\nreturn {\n  json: {\n    twitter_thread: Array.isArray(parsed.twitter_thread)\n      ? parsed.twitter_thread\n      : []\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        -960
+      ],
+      "id": "8320c312-e922-40af-bb35-b96b3bc83fca",
+      "name": "Parse output2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw AI output\nconst rawOutput = $json.output;\n\n// Safety fallback\nif (!rawOutput || typeof rawOutput !== 'string') {\n  return {\n    json: {\n      instagram_caption: ''\n    }\n  };\n}\n\nlet parsed;\n\n// Safely parse JSON string\ntry {\n  parsed = JSON.parse(rawOutput);\n} catch (err) {\n  return {\n    json: {\n      instagram_caption: ''\n    }\n  };\n}\n\n// Ensure correct structure\nreturn {\n  json: {\n    instagram_caption:\n      typeof parsed.instagram_caption === 'string'\n        ? parsed.instagram_caption\n        : ''\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        -624
+      ],
+      "id": "f47ec4de-6195-4e63-b3f5-7edeb297ad84",
+      "name": "Parse output3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw AI output\nconst rawOutput = $json.output;\n\n// Fallback if output is missing or invalid\nif (!rawOutput || typeof rawOutput !== 'string') {\n  return {\n    json: {\n      email_subject: '',\n      email_body: ''\n    }\n  };\n}\n\nlet parsed;\n\n// Safely parse JSON string\ntry {\n  parsed = JSON.parse(rawOutput);\n} catch (err) {\n  return {\n    json: {\n      email_subject: '',\n      email_body: ''\n    }\n  };\n}\n\n// Extract fields safely\nreturn {\n  json: {\n    email_subject:\n      parsed.email_newsletter?.subject && typeof parsed.email_newsletter.subject === 'string'\n        ? parsed.email_newsletter.subject\n        : '',\n\n    email_body:\n      parsed.email_newsletter?.body && typeof parsed.email_newsletter.body === 'string'\n        ? parsed.email_newsletter.body\n        : ''\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        -288
+      ],
+      "id": "bae9ddf2-cf59-43af-b719-ce89ab8f1b38",
+      "name": "Parse output4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw AI output (JSON string)\nconst rawOutput = $json.output;\n\n// Fallback if output is missing or invalid\nif (!rawOutput || typeof rawOutput !== 'string') {\n  return {\n    json: {\n      key_takeaways: '',\n      key_takeaways_list: []\n    }\n  };\n}\n\nlet parsed;\n\n// Safely parse JSON string\ntry {\n  parsed = JSON.parse(rawOutput);\n} catch (err) {\n  return {\n    json: {\n      key_takeaways: '',\n      key_takeaways_list: []\n    }\n  };\n}\n\n// Normalize key_takeaways\nconst takeawaysArray = Array.isArray(parsed.key_takeaways)\n  ? parsed.key_takeaways\n  : [];\n\n// Return both array + string versions (useful for Sheets, Notion, DBs)\nreturn {\n  json: {\n    key_takeaways_list: takeawaysArray,\n    key_takeaways: takeawaysArray.join(' | ')\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        16
+      ],
+      "id": "d91aa478-8df2-4d53-bbee-6e913bcaa0c6",
+      "name": "Parse output5"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "377f118b-f74f-482b-903a-fd950d5bb3c3",
+              "name": "original_content",
+              "value": "={{ $('IF - Content Length Check').item.json.body.content }}",
+              "type": "string"
+            },
+            {
+              "id": "72489ec2-258e-49c8-8495-a53affd73fc4",
+              "name": "topic",
+              "value": "={{ $('IF - Content Length Check').item.json.body.topic }}",
+              "type": "string"
+            },
+            {
+              "id": "2e15c1ae-4b4a-480c-9133-51f7d175e000",
+              "name": "timestamp",
+              "value": "={{ $('IF - Content Length Check').item.json.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "25a91808-7836-43c3-9384-7e59789e0080",
+              "name": "linkedin_post",
+              "value": "={{ $json.linkedin_post }}",
+              "type": "string"
+            },
+            {
+              "id": "9de1f5e4-38b4-42fc-809e-b75c20d77702",
+              "name": "twitter_thread[0]",
+              "value": "={{ $json.twitter_thread[0] }}\n\n{{ $json.twitter_thread[1] }}\n\n{{ $json.twitter_thread[2] }}\n\n{{ $json.twitter_thread[3] }}\n\n{{ $json.twitter_thread[4] }}\n\n{{ $json.twitter_thread[5] }}",
+              "type": "string"
+            },
+            {
+              "id": "66f65bd1-67b9-4250-b23a-46739eb34344",
+              "name": "instagram_caption",
+              "value": "={{ $json.instagram_caption }}",
+              "type": "string"
+            },
+            {
+              "id": "57db36d1-f93b-41b7-869d-3dff38e8b88c",
+              "name": "email_subject",
+              "value": "={{ $json.email_subject }}",
+              "type": "string"
+            },
+            {
+              "id": "ba424c73-531a-461f-828e-04a08f23d171",
+              "name": "email_body",
+              "value": "={{ $json.email_body }}",
+              "type": "string"
+            },
+            {
+              "id": "f969c501-4d9e-4f8a-ac8a-003dea83f322",
+              "name": "key_takeaways_list[0]",
+              "value": "={{ $json.key_takeaways }}",
+              "type": "string"
+            },
+            {
+              "id": "73bb3bfc-f9ff-4390-af30-6e5b99627b3f",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2224,
+        -624
+      ],
+      "id": "988d3fd4-9ae1-4b28-a370-0f81685e6d7b",
+      "name": "Set - Merge All Outputs"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1H3rn3hN-aky0OuxVf5XHN2pEtWTOHVo2kko6X1_YscA",
+          "mode": "list",
+          "cachedResultName": "AI Content Repurposing Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1H3rn3hN-aky0OuxVf5XHN2pEtWTOHVo2kko6X1_YscA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1H3rn3hN-aky0OuxVf5XHN2pEtWTOHVo2kko6X1_YscA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TimeStamp": "={{ $json.timestamp }}",
+            "Topic": "={{ $json.topic }}",
+            "Orginal content": "={{ $json.original_content }}",
+            "LinkedIn Post": "={{ $json.linkedin_post }}",
+            "Twitter Thread": "={{ $json.twitter_thread[0] }}",
+            "Instagram Caption": "={{ $json.instagram_caption }}",
+            "Email Subject": "={{ $json.email_subject }}",
+            "Email Body": "={{ $json.email_body }}",
+            "Key Takeways": "={{ $json.key_takeaways_list[0] }}",
+            "Status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "TimeStamp",
+              "displayName": "TimeStamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Orginal content",
+              "displayName": "Orginal content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "LinkedIn Post",
+              "displayName": "LinkedIn Post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Twitter Thread",
+              "displayName": "Twitter Thread",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Subject",
+              "displayName": "Email Subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Body",
+              "displayName": "Email Body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Key Takeways",
+              "displayName": "Key Takeways",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2432,
+        -624
+      ],
+      "id": "4049839d-a30c-4976-93af-c07bbca51482",
+      "name": "Google Sheets - Save Results",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=✅ *Content Repurposing Complete!* \n\n📝 *Topic:* {{ $('Set - Merge All Outputs').item.json.topic }} \n\n⏰ *Completed:* {{ $now.format('MMM DD, YYYY - HH:mm') }} \n\n📊 *Generated Assets:*  *LinkedIn:* {{ $('Set - Merge All Outputs').item.json.linkedin_post.substring(0, 150) }}... \n\n*Twitter Thread:* {{ $('Set - Merge All Outputs').item.json.twitter_thread[0].substring(0, 100) }}... ({{ $('Set - Merge All Outputs').item.json.twitter_thread.length }} tweets)\n\n*Instagram:* {{ $('Set - Merge All Outputs').item.json.instagram_caption.substring(0, 100) }}...\n\n*Email Subject:* {{ $('Set - Merge All Outputs').item.json.email_subject }} \n\n*Key Takeaways:*{{ $json['Key Takeways'] }}\n\ninsights extracted  🔗 All content saved to Google Sheets!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2640,
+        -624
+      ],
+      "id": "c8583ec1-efa3-4859-bd66-c8307e7b5c27",
+      "name": "Telegram - Send Notification",
+      "webhookId": "7fff8e35-5507-46f7-80a2-614724044bb1",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e2d25320-43c8-4c91-8b27-af637ad188b2",
+              "name": "error",
+              "value": "Content too short",
+              "type": "string"
+            },
+            {
+              "id": "11935a84-f4fc-4b55-9d19-831c01323c2a",
+              "name": "message",
+              "value": "Content must be at least 500 characters for effective repurposing",
+              "type": "string"
+            },
+            {
+              "id": "72770646-282f-477d-ba5e-ebb6dccc7794",
+              "name": "content_length",
+              "value": "={{ $('Set - Normalize Input').item.json.content_length }}",
+              "type": "string"
+            },
+            {
+              "id": "0e5ff912-0dc6-408b-8c27-7f290ad5838c",
+              "name": "timestamp",
+              "value": "={{ $('Set - Normalize Input').item.json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -192
+      ],
+      "id": "0238aa5e-1e52-4ea3-b89d-e1cf3d20ece7",
+      "name": "Error Fields"
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "Error content length is small",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        -192
+      ],
+      "id": "52085b15-1d30-4490-8c21-26db01330efa",
+      "name": "Telegram -  Error Notification",
+      "webhookId": "7fff8e35-5507-46f7-80a2-614724044bb1",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set - Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Content Analyzer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - LinkedIn Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Content Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Parse output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Twitter Thread Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Instagram Caption Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Email Newsletter Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Key Takeaways Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - LinkedIn Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Twitter Thread Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse output2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Instagram Caption Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse output3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Email Newsletter Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse output4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Key Takeaways Extractor": {
+      "main": [
+        [
+          {
+            "node": "Parse output5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Set - Merge All Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "IF - Content Length Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Content Length Check": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Content Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse output": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - LinkedIn Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Twitter Thread Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Instagram Caption Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Email Newsletter Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent - Key Takeaways Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse output1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse output2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse output3": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Parse output4": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Parse output5": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Set - Merge All Outputs": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Save Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Save Results": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Fields": {
+      "main": [
+        [
+          {
+            "node": "Telegram -  Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f0406c2c-547e-4d4f-9843-5a392fa54fb1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "x7wKwkglpAiYAuhE",
+  "tags": []
+}

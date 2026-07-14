@@ -1,0 +1,576 @@
+{
+  "name": "AI SOP Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sop-generator",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        64,
+        0
+      ],
+      "id": "c707754b-428f-47df-9e0f-442833839957",
+      "name": "Webhook",
+      "webhookId": "9f71be17-a3f8-4691-ab9f-ec8e072d1c7d"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65cdee49-3a83-4703-a7fa-64c141c31447",
+              "name": "process_name",
+              "value": "={{ $json.body.process_name }}",
+              "type": "string"
+            },
+            {
+              "id": "af0a763a-d66d-4689-a8ce-7fce7b087d06",
+              "name": "process_notes",
+              "value": "={{ $json.body.process_notes }}",
+              "type": "string"
+            },
+            {
+              "id": "36e43b55-b99b-45a3-8858-07927f370200",
+              "name": "department",
+              "value": "={{ $json.body.department }}",
+              "type": "string"
+            },
+            {
+              "id": "f8482d57-8672-4d1f-8c7b-74e72c1e86e2",
+              "name": "tools_involved",
+              "value": "={{ $json.body.tools_involved }}",
+              "type": "string"
+            },
+            {
+              "id": "e34e46e0-5f65-48ac-802c-27c0a1c6c6a3",
+              "name": "frequency",
+              "value": "={{ $json.body.frequency }}",
+              "type": "string"
+            },
+            {
+              "id": "08513b21-bb72-4dde-b4bd-dbeeaebaf89e",
+              "name": "submitted_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "10c4504b-549b-4d0a-bf8a-6db1d642f5f1",
+              "name": "submission_id",
+              "value": "={{ $now.toMillis() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ],
+      "id": "ab8a216a-b776-4348-869b-0424f62d65a1",
+      "name": "Set (Normalize Inputs)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ce8c20cd-57ad-4147-9bfa-2bcaf1a6dc35",
+              "leftValue": "={{ $json.process_notes.length }}",
+              "rightValue": 20,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "6a80043d-64ae-4b2a-b182-8b07f278b40c",
+              "leftValue": "={{ $json.process_name.length }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "33479323-cd2a-47a9-863b-dd78ab70ffce",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        816,
+        176
+      ],
+      "id": "afa9fb45-d354-44b3-a00b-fe55cc530903",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Clean and trim the notes\nconst cleanedNotes = data.process_notes\n  .trim()\n  .replace(/\\s+/g, ' ')\n  .replace(/[^\\x20-\\x7E\\n]/g, ''); // remove non-printable chars\n\n// Build enriched context block\nconst contextBlock = `\nPROCESS NAME: ${data.process_name}\nDEPARTMENT: ${data.department}\nFREQUENCY: ${data.frequency}\nTOOLS INVOLVED: ${data.tools_involved}\n\nRAW PROCESS NOTES:\n${cleanedNotes}\n`.trim();\n\nreturn [{\n  json: {\n    ...data,\n    cleaned_notes: cleanedNotes,\n    context_block: contextBlock,\n    sop_version: \"1.0\",\n    status: \"draft\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "53b7a577-ca4f-428b-b19d-ada5941c03fe",
+      "name": "Function (Build AI Prompt Context)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the process information to convert into an SOP:\n\n{{ $json.context_block }}\n\nGenerate the complete SOP JSON now.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a senior operations manager and technical writer specializing in creating Standard Operating Procedures (SOPs) for business teams.\n\nYour job is to transform unstructured process notes into a complete, professional SOP document.\n\nRULES:\n- Write in clear, simple English that non-technical team members can follow\n- Do not assume the reader has prior knowledge of the process\n- Number all steps explicitly\n- Be specific — avoid vague instructions like \"review the data\"\n- Return ONLY valid JSON — no explanation, no markdown fences, no commentary\n\nOUTPUT FORMAT — return ONLY this JSON structure:\n\n{\n  \"sop_title\": \"Short, clear title for this SOP\",\n  \"purpose\": \"1–2 sentences explaining why this process exists and what it achieves\",\n  \"scope\": \"Who this SOP applies to, what situations it covers, what it excludes\",\n  \"prerequisites\": [\n    \"Item or condition that must be true before starting\",\n    \"Access or tool that must be available\"\n  ],\n  \"steps\": [\n    \"Step 1: [Action verb] — [specific instruction]\",\n    \"Step 2: [Action verb] — [specific instruction]\"\n  ],\n  \"roles_and_responsibilities\": [\n    \"Role name: What they are responsible for in this process\"\n  ],\n  \"tools_used\": [\n    \"Tool name: How it is used in this process\"\n  ],\n  \"common_mistakes\": [\n    \"Mistake description: How to avoid it\"\n  ],\n  \"quality_checks\": [\n    \"Check description: When and how to perform it\"\n  ],\n  \"revision_notes\": \"Version 1.0 — Initial SOP generated from process notes on [today's date]. Review within 30 days.\"\n}\n\nGenerate between 6–15 steps. Generate at least 3 items in each array field."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        816,
+        -16
+      ],
+      "id": "874b4303-0219-4372-b4e6-d819fa0fdbe3",
+      "name": "AI Agent (Generate SOP)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agentOutput = $input.first().json.output || $input.first().json.text || '';\n\n// Strip markdown code fences if present\nlet cleaned = agentOutput.trim();\nif (cleaned.startsWith('```')) {\n  cleaned = cleaned.replace(/^```json?\\n?/, '').replace(/\\n?```$/, '');\n}\n\nlet sop;\ntry {\n  sop = JSON.parse(cleaned);\n} catch(e) {\n  throw new Error('AI did not return valid JSON. Raw output: ' + agentOutput.substring(0, 300));\n}\n\n// Validate required fields with fallbacks\nconst validated = {\n  sop_title: sop.sop_title || $input.first().json.process_name + ' — SOP',\n  purpose: sop.purpose || '',\n  scope: sop.scope || '',\n  prerequisites: Array.isArray(sop.prerequisites) ? sop.prerequisites : [],\n  steps: Array.isArray(sop.steps) ? sop.steps : [],\n  roles_and_responsibilities: Array.isArray(sop.roles_and_responsibilities) ? sop.roles_and_responsibilities : [],\n  tools_used: Array.isArray(sop.tools_used) ? sop.tools_used : [],\n  common_mistakes: Array.isArray(sop.common_mistakes) ? sop.common_mistakes : [],\n  quality_checks: Array.isArray(sop.quality_checks) ? sop.quality_checks : [],\n  revision_notes: sop.revision_notes || 'Initial version — generated automatically.'\n};\n\nreturn [{\n  json: {\n    ...validated,\n    process_name: $input.first().json.process_name,\n    department: $input.first().json.department,\n    frequency: $input.first().json.frequency,\n    tools_involved: $input.first().json.tools_involved,\n    submitted_at: $input.first().json.submitted_at,\n    submission_id: $input.first().json.submission_id,\n    sop_version: $input.first().json.sop_version,\n    status: $input.first().json.status\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -16
+      ],
+      "id": "2d8947f7-bab5-49d1-872d-58a8759ce6be",
+      "name": "Function (Parse & Validate AI Output)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json;\n\nconst stepsText = s.steps.map((step, i) => `${i+1}. ${step}`).join('\\n');\nconst prereqText = s.prerequisites.map(p => `- ${p}`).join('\\n');\nconst rolesText = s.roles_and_responsibilities.map(r => `- ${r}`).join('\\n');\nconst toolsText = s.tools_used.map(t => `- ${t}`).join('\\n');\nconst mistakesText = s.common_mistakes.map(m => `- ${m}`).join('\\n');\nconst checksText = s.quality_checks.map(q => `- ${q}`).join('\\n');\n\nconst markdown = `# ${s.sop_title}\n\n**Version:** ${s.sop_version} | **Department:** ${s.department} | **Frequency:** ${s.frequency}\n\n---\n\n## Purpose & Objective\n${s.purpose}\n\n## Scope\n${s.scope}\n\n## Prerequisites\n${prereqText}\n\n## Step-by-Step Procedure\n${stepsText}\n\n## Roles & Responsibilities\n${rolesText}\n\n## Tools & Systems Used\n${toolsText}\n\n## Common Mistakes & Edge Cases\n${mistakesText}\n\n## Quality Checks\n${checksText}\n\n## Revision Notes\n${s.revision_notes}\n\n---\n*Generated on: ${s.submitted_at} | Submission ID: ${s.submission_id}*\n`;\n\nreturn [{ json: { ...s, markdown_sop: markdown } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -16
+      ],
+      "id": "f9456dd9-7838-4960-b28c-6a8e4fd21640",
+      "name": "Function (Convert to Markdown)"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Kk7hXmBtfyejqTJguzyiazpRRuhe1ZmMcKdMUdhLOeY",
+          "mode": "list",
+          "cachedResultName": "AI SOP Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kk7hXmBtfyejqTJguzyiazpRRuhe1ZmMcKdMUdhLOeY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kk7hXmBtfyejqTJguzyiazpRRuhe1ZmMcKdMUdhLOeY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SOP Title": "={{ $json.sop_title }}",
+            "Process Name": "={{ $('Set (Normalize Inputs)').item.json.process_name }}",
+            "Department": "={{ $('Set (Normalize Inputs)').item.json.department }}",
+            "Submission ID": "={{ $('Set (Normalize Inputs)').item.json.submission_id }}",
+            "Frequency": "={{ $('Set (Normalize Inputs)').item.json.frequency }}",
+            "Scope": "={{ $json.scope }}",
+            "Purpose": "={{ $json.purpose }}",
+            "Steps Count": "={{ $json.steps.length }}",
+            "Markdown SOP": "={{ $json.markdown_sop }}",
+            "Version": "={{ $('Function (Parse & Validate AI Output)').item.json.revision_notes }}",
+            "Submitted At": "={{ $('Set (Normalize Inputs)').item.json.submitted_at }}",
+            "Status": "pending",
+            "Raw JSON": "=process_name : {{ $('Set (Normalize Inputs)').item.json.process_name }}\n\nprocess_notes: {{ $('Set (Normalize Inputs)').item.json.process_notes }}\n\ndepartment: {{ $('Set (Normalize Inputs)').item.json.department }}\n\ntools_involved: {{ $('Set (Normalize Inputs)').item.json.tools_involved }}\n\nfrequency: {{ $('Set (Normalize Inputs)').item.json.frequency }}\n\nsubmitted_at: {{ $('Set (Normalize Inputs)').item.json.submitted_at }}\n\nsubmission_id: {{ $('Set (Normalize Inputs)').item.json.submission_id }} "
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Submission ID",
+              "displayName": "Submission ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SOP Title",
+              "displayName": "SOP Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Process Name",
+              "displayName": "Process Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Department",
+              "displayName": "Department",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Frequency",
+              "displayName": "Frequency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Version",
+              "displayName": "Version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Purpose",
+              "displayName": "Purpose",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scope",
+              "displayName": "Scope",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steps Count",
+              "displayName": "Steps Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Markdown SOP",
+              "displayName": "Markdown SOP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Raw JSON",
+              "displayName": "Raw JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1456,
+        -16
+      ],
+      "id": "b9354660-a329-4812-b1f6-1e7047b8be30",
+      "name": "Google Sheets (Store SOP)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7350267365",
+        "text": "=✅ *New SOP Generated*\n\n📄 *Title:* {{ $json['SOP Title'] }}\n🏢 *Department:* {{ $json.Department }}\n🔁 *Frequency:* {{ $json.Frequency }}\n🆔 *Submission ID:* {{ $json['Submission ID'] }}\n\n*Purpose:* {{ $json.Purpose }}\n\n\n*First 3 Steps Preview:*\n1. {{ $('Function (Convert to Markdown)').item.json.steps[0] }}\n2. {{ $('Function (Convert to Markdown)').item.json.steps[1] }}\n3. {{ $('Function (Convert to Markdown)').item.json.steps[2] }}\n\n📊 Total Steps: {{ $json['Steps Count'] }}\n🗓️ Generated: {{ $json['Submitted At'] }}\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        -16
+      ],
+      "id": "772b7004-4c78-41c7-949c-f5c1a774e9a0",
+      "name": "Telegram (Notify Owner)",
+      "webhookId": "522aa19b-6fc9-45fd-9ac0-152237f18f02",
+      "credentials": {
+        "telegramApi": {
+          "id": "WM4UJf38iPD545XB",
+          "name": "Telegram account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"sop_title\": \"{{ $('Google Sheets (Store SOP)').item.json['SOP Title'] }}\",\n  \"submission_id\": {{ $('Google Sheets (Store SOP)').item.json['Submission ID'] }},\n  \"steps_generated\": \"{{ $('Google Sheets (Store SOP)').item.json['Steps Count'] }}\",\n  \"message\": \"SOP generated and stored successfully.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1840,
+        -16
+      ],
+      "id": "91a2c517-9b92-4bd2-9c5a-8808b61a3705",
+      "name": "Webhook Response (Return Result)"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "PostmanRuntime/7.51.1",
+            "accept": "*/*",
+            "postman-token": "d5b35389-2de2-4ebc-8a1b-fa6ca931d3ae",
+            "host": "localhost:5678",
+            "accept-encoding": "gzip, deflate, br",
+            "connection": "keep-alive",
+            "content-length": "239"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "process_name": "Monthly Vendor Invoice Review",
+            "process_notes": "Every month finance team checks all vendor invoices...",
+            "department": "Finance",
+            "tools_involved": "QuickBooks, Google Sheets, Email",
+            "frequency": "monthly"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/sop-generator",
+          "executionMode": "test"
+        }
+      }
+    ],
+    "Set (Normalize Inputs)": [
+      {
+        "json": {
+          "process_name": "Monthly Vendor Invoice Review",
+          "process_notes": "Every month finance team checks all vendor invoices...",
+          "department": "Finance",
+          "tools_involved": "QuickBooks, Google Sheets, Email",
+          "frequency": "monthly",
+          "submitted_at": "2026-02-17T23:05:55.055-05:00",
+          "submission_id": "1771387555062"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set (Normalize Inputs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (Normalize Inputs)": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Function (Build AI Prompt Context)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (Generate SOP)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function (Build AI Prompt Context)": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (Generate SOP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (Generate SOP)": {
+      "main": [
+        [
+          {
+            "node": "Function (Parse & Validate AI Output)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function (Parse & Validate AI Output)": {
+      "main": [
+        [
+          {
+            "node": "Function (Convert to Markdown)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function (Convert to Markdown)": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets (Store SOP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets (Store SOP)": {
+      "main": [
+        [
+          {
+            "node": "Telegram (Notify Owner)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram (Notify Owner)": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response (Return Result)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c253d1c6-087f-4dbd-ad0c-e83cd0361fdf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "S6Mm4KM0AGvOUwlz",
+  "tags": []
+}

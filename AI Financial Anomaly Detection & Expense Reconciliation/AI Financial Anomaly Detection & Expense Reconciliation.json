@@ -1,0 +1,644 @@
+{
+  "name": "AI Financial Anomaly Detection & Expense Reconciliation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b9382dd8-464f-4249-8654-90ba537c2755",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24",
+          "mode": "list",
+          "cachedResultName": "AI Financial Anomaly Detection & Expense Reconciliation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Transactions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "15627fb4-25ab-42a5-a617-814a252df57f",
+      "name": "`Fetch Transactions` (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst transactions = items.map(i => i.json);\n\n// ── 1. Fingerprint-based duplicate detection ──────────────────────\nconst seen = new Map();\nconst duplicatesMap = new Map(); // easier lookup per transaction\n\ntransactions.forEach(tx => {\n  const fingerprint = `${tx.vendor}|${tx.amount}|${tx.date}|${tx.employee}`;\n\n  if (seen.has(fingerprint)) {\n    const originalId = seen.get(fingerprint);\n\n    duplicatesMap.set(tx.transaction_id, {\n      is_duplicate: true,\n      original_id: originalId,\n      reason: \"Identical vendor, amount, date and employee\"\n    });\n\n    // mark original also\n    duplicatesMap.set(originalId, {\n      is_duplicate: true,\n      related_duplicate: tx.transaction_id\n    });\n\n  } else {\n    seen.set(fingerprint, tx.transaction_id);\n  }\n});\n\n// ── 2. Category budget totals ────────────────────────────────────\nconst budgetLimits = {\n  \"Cloud Infrastructure\": 10000,\n  \"Travel\": 5000,\n  \"Meals & Entertainment\": 2000,\n  \"Software\": 3000,\n  \"Office Supplies\": 1000,\n  \"Marketing\": 8000\n};\n\nconst categoryTotals = {};\ntransactions.forEach(tx => {\n  categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + Number(tx.amount);\n});\n\n// mark which categories are over budget\nconst overBudgetCategories = new Set(\n  Object.entries(categoryTotals)\n    .filter(([cat, total]) => budgetLimits[cat] && total > budgetLimits[cat])\n    .map(([cat]) => cat)\n);\n\n// ── 3. Policy violation checks ───────────────────────────────────\nconst ROUND_NUMBER_THRESHOLD = 5000;\nconst WEEKEND_CATEGORIES_ALLOWED = [\"Travel\"];\nconst HIGH_VALUE_THRESHOLD = 10000;\n\n// ── 4. Return per-transaction enriched output ─────────────────────\nreturn transactions.map(tx => {\n\n  const txDate = new Date(tx.date);\n  const dayOfWeek = txDate.getDay();\n  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;\n  const amount = Number(tx.amount);\n\n  const violations = [];\n\n  if (isWeekend && !WEEKEND_CATEGORIES_ALLOWED.includes(tx.category)) {\n    violations.push(\"weekend_transaction\");\n  }\n\n  if (amount >= ROUND_NUMBER_THRESHOLD && amount % 1000 === 0) {\n    violations.push(\"suspicious_round_number\");\n  }\n\n  if (amount > HIGH_VALUE_THRESHOLD) {\n    violations.push(\"high_value\");\n  }\n\n  return {\n    json: {\n      ...tx,\n\n      // 🔁 Duplicate info\n      duplicate_info: duplicatesMap.get(tx.transaction_id) || {\n        is_duplicate: false\n      },\n\n      // 💰 Budget info\n      category_total: categoryTotals[tx.category] || 0,\n      category_budget: budgetLimits[tx.category] || null,\n      is_over_budget: overBudgetCategories.has(tx.category),\n\n      // 🚨 Policy flags\n      violations,\n      violation_count: violations.length,\n\n      // 🧠 Useful flags\n      is_weekend: isWeekend,\n      is_high_risk: violations.length > 0 || duplicatesMap.has(tx.transaction_id),\n\n      // 📊 Global context (optional but powerful)\n      total_transactions: transactions.length,\n      total_spend: transactions.reduce((s, t) => s + Number(t.amount), 0),\n\n      processed_at: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "064ef86b-0554-4cc3-9130-b84ec043df0c",
+      "name": "Pre-Process & Deduplicate"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following corporate transaction data and return your findings as JSON.\n\nDATASET:\n{{ JSON.stringify($json, null, 2) }}\n\nThe dataset includes:\n- transactions: array of all transactions from last 24 hours\n- pre_detected_duplicates: fingerprint-matched duplicates already found\n- category_totals: total spend per category today\n- budget_alerts: categories already over budget limit\n- policy_violations: rule-based pre-detections\n- total_spend: sum of all transactions\n- transaction_count: number of transactions\n\nCross-reference the pre_detected_duplicates and policy_violations with your own analysis.\nConfirm, enrich, or correct them with your reasoning.\nAdd any additional anomalies you detect that the rule engine missed.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a senior financial fraud detection and compliance expert with 15 years of experience at Big 4 accounting firms. Your job is to analyze corporate expense transaction data and identify anomalies with precision and confidence.\n\nYou MUST return ONLY valid JSON — no markdown, no explanations outside the JSON, no preamble.\nFollow this exact output schema:\n{\n  \"anomalies\": [{ \"transaction_id\", \"anomaly_type\", \"severity\", \"fraud_score\", \"confidence\", \"reason\", \"recommendation\", \"related_transactions\", \"amount\", \"vendor\", \"employee\", \"weekend_flag\", \"round_number_flag\" }],\n  \"summary\": { \"total_anomalies\", \"high\", \"medium\", \"low\", \"total_suspicious_amount\", \"top_risk_vendor\", \"top_risk_employee\", \"overall_risk_level\" }\n}\n\nDetection rules you MUST apply:\n1. DUPLICATES: Same vendor + amount + employee within 48 hours = high severity duplicate\n2. FRAUD PATTERNS: Round numbers >₹5000 with no receipt category; transactions at unusual hours; vendor names that differ by 1 character (e.g. \"Amazzon\"); split transactions just below approval thresholds\n3. BUDGET OVERRUNS: Use the category_totals vs budget_alerts provided. Any category over budget is at minimum medium severity\n4. POLICY VIOLATIONS: Weekend purchases in non-travel categories; single vendor over 40% of department spend; amounts exceeding ₹10,000 without high-value flag\n5. SUSPICIOUS PATTERNS: Same employee with 3+ transactions in one day; new vendor with first transaction >₹8,000; vendor in a different city than employee's department base\n\nSeverity rules:\n- HIGH: Confirmed duplicate, likely fraud, amount >₹10,000 anomaly\n- MEDIUM: Policy violation, budget overrun >20%, suspicious pattern\n- LOW: Minor policy deviation, budget overrun <20%, informational flag\n\nfraud_score: 0-100 integer. confidence: 0.0-1.0 float.\n```"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "324fa8df-961a-4caf-877f-b9795311e4d6",
+      "name": "AI Anomaly Detection"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-nano-12b-v2-vl:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        624,
+        208
+      ],
+      "id": "3a5de6e6-1ce5-46c8-a095-28447a49dee3",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "sBTDlOpUwYgBh6wB",
+          "name": "n8n-regular"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nlet allAnomalies = [];\nlet summaries = [];\n\nfor (const item of items) {\n\n  let content = item.json.output || \"\";\n\n  // 🧹 Clean markdown fences\n  content = content.replace(/```json|```/g, '').trim();\n\n  if (!content) continue;\n\n  let parsed;\n\n  try {\n    parsed = JSON.parse(content);\n  } catch (e) {\n    // skip bad JSON but keep debugging option\n    continue;\n  }\n\n  // ✅ Normalize anomalies\n  if (Array.isArray(parsed.anomalies)) {\n    parsed.anomalies.forEach(a => {\n\n      allAnomalies.push({\n        ...a,\n\n        // 🔧 Normalize fields\n        severity: (a.severity || \"low\").toLowerCase(),\n        anomaly_type: (a.anomaly_type || \"\").toLowerCase(),\n\n        // 🧠 Enrichment\n        detected_at: new Date().toISOString(),\n        workflow_run_id: $execution.id,\n        status: \"open\",\n\n        fraud_score: a.fraud_score ?? 0,\n        confidence: a.confidence ?? 0,\n        amount: Number(a.amount || 0),\n\n        // 🚀 Flags\n        is_high_risk: (a.severity || \"\").toLowerCase() === \"high\" || (a.fraud_score ?? 0) >= 80,\n        needs_review: (a.severity || \"\").toLowerCase() !== \"low\"\n      });\n\n    });\n  }\n\n  // collect summaries\n  if (parsed.summary) {\n    summaries.push(parsed.summary);\n  }\n}\n\n// ── 📊 Aggregate summary ─────────────────────────────\nconst summary = {\n  total_anomalies: allAnomalies.length,\n  high: allAnomalies.filter(a => a.severity === \"high\").length,\n  medium: allAnomalies.filter(a => a.severity === \"medium\").length,\n  low: allAnomalies.filter(a => a.severity === \"low\").length,\n  total_suspicious_amount: allAnomalies.reduce((s, a) => s + a.amount, 0),\n};\n\n// ── 🔁 RETURN MULTIPLE ITEMS (KEY CHANGE) ────────────\n\n// 1. Return each anomaly as separate item\nconst anomalyItems = allAnomalies.map(a => ({\n  json: {\n    type: \"anomaly\",\n    ...a\n  }\n}));\n\n// 2. Add ONE summary item (optional but powerful)\nconst summaryItem = {\n  json: {\n    type: \"summary\",\n    ...summary\n  }\n};\n\nreturn [...anomalyItems, summaryItem];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "8f7d5e25-f634-4158-a85d-9e9cb474b381",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.severity }}",
+                    "rightValue": "high",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "daea86fb-d16f-4dc1-8460-0a9c3d270041"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "441e446f-cb9c-4923-9846-9f111b599334",
+                    "leftValue": "={{ $json.severity }}",
+                    "rightValue": "medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "73a432b6-151c-4b11-a911-7d4cf1420379",
+                    "leftValue": "={{ $json.severity }}",
+                    "rightValue": "low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1184,
+        -16
+      ],
+      "id": "0fdf487a-f0aa-4ffc-a37f-70a188997bc8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1664,
+        -16
+      ],
+      "id": "ffd5716d-8c56-4e28-b6c4-2173e4b81c08",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24",
+          "mode": "list",
+          "cachedResultName": "AI Financial Anomaly Detection & Expense Reconciliation",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1762919534,
+          "mode": "list",
+          "cachedResultName": "AuditLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Rt8ENolpb0rQ43qCGf-PLdIoN3ZxNve3syCyNDaGY24/edit#gid=1762919534"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "transaction_id": "={{ $('Parse AI Response').item.json.transaction_id }}",
+            "anomaly_type": "={{ $('Parse AI Response').item.json.anomaly_type }}",
+            "severity": "={{ $('Parse AI Response').item.json.severity }}",
+            "fraud_score": "={{ $('Parse AI Response').item.json.fraud_score }}",
+            "reason": "={{ $('Parse AI Response').item.json.reason }}",
+            "recommendation": "={{ $('Parse AI Response').item.json.recommendation }}",
+            "workflow_run_id": "={{ $('Parse AI Response').item.json.workflow_run_id }}",
+            "detected_at": "={{ $('Parse AI Response').item.json.detected_at }}",
+            "alert_sent": "={{ $('Parse AI Response').item.json.weekend_flag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "transaction_id",
+              "displayName": "transaction_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "anomaly_type",
+              "displayName": "anomaly_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fraud_score",
+              "displayName": "fraud_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alert_sent",
+              "displayName": "alert_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detected_at",
+              "displayName": "detected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow_run_id",
+              "displayName": "workflow_run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1872,
+        0
+      ],
+      "id": "e2fc3338-0bd1-4987-a0e2-16ad13fcdc72",
+      "name": "Write Audit Log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9d9d22d4-bb72-46e3-96a8-b307d202f2f2",
+              "name": "alert_sent",
+              "value": "false",
+              "type": "string"
+            },
+            {
+              "id": "7cf6a03d-405f-440a-b742-454c9be45152",
+              "name": "log_only",
+              "value": "true",
+              "type": "string"
+            },
+            {
+              "id": "06b79066-3305-4105-97a8-743b32a6f353",
+              "name": "reason",
+              "value": "\"Low severity — logged for weekly review\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1408,
+        176
+      ],
+      "id": "663dd920-f963-4c88-a4bb-116842aff9fc",
+      "name": "Set Node — Low Severity"
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=⚠️ Financial Anomaly Alert — Medium Severity  Severity: Medium Count: {{ $json.severity.length }}\nanomalies Detected: {{ $now.toFormat('dd MMM HH:mm') }} \nRun ID: {{ $json.workflow_run_id }} \n---------------------------------------- ",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1408,
+        0
+      ],
+      "id": "741c20b7-0bcb-43ec-b45b-eb7cd0a964de",
+      "name": "Slack — Medium Severity",
+      "webhookId": "376fb169-f6b6-46e4-80af-17db8adcefce",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "=URGENT: {{ $json.high_severity.length }} Critical Financial Anomaly(ies) Detected",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto\">\n  <div style=\"background:#c0392b;color:#fff;padding:16px;border-radius:8px 8px 0 0\">\n    <h2 style=\"margin:0\">🚨 Critical Financial Anomaly Alert</h2>\n    <p style=\"margin:4px 0 0\">Detected: {{ $now.toFormat('dd MMM yyyy HH:mm') }}</p>\n  </div>\n\n  <div style=\"background:#fff;border:1px solid #ddd;padding:16px\">\n    <h3>Summary</h3>\n    <ul>\n      <li><strong>Total Anomalies:</strong> {{ $json.total_anomalies }}</li>\n      <li><strong>High Severity:</strong> {{ $json.high_severity.length }}</li>\n      <li><strong>Workflow Run:</strong> {{ $json.workflow_run_id }}</li>\n    </ul>\n\n    <h3 style=\"color:#c0392b\">🔴 High Severity Findings</h3>\n    {{ $json.high_severity.map(a => `\n    <div style=\"border-left:4px solid #c0392b;padding:8px;margin:8px 0;background:#fef9f9\">\n      <strong>${a.transaction_id}</strong> — ${a.anomaly_type.toUpperCase()}<br/>\n      <strong>Vendor:</strong> ${a.vendor} | <strong>Amount:</strong> ₹${Number(a.amount).toLocaleString('en-IN')}<br/>\n      <strong>Employee:</strong> ${a.employee}<br/>\n      <strong>Reason:</strong> ${a.reason}<br/>\n      <strong>Recommended Action:</strong> ${a.recommendation}<br/>\n      <span style=\"color:#888;font-size:12px\">Fraud Score: ${a.fraud_score}/100 | Confidence: ${(a.confidence*100).toFixed(0)}%</span>\n    </div>`).join('') }}\n\n    <hr/>\n    <p style=\"color:#888;font-size:12px\">\n      This alert was generated automatically by the n8n Financial Anomaly Detection System.\n      Please review the full audit log in Google Sheets.\n    </p>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1408,
+        -160
+      ],
+      "id": "a561ebf5-3173-42dc-8e64-bc10378856f1",
+      "name": "Gmail Alert — High Severity",
+      "webhookId": "ecb07a61-5429-4389-9dd1-2f8a819301d0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "AI Anomaly Detection": [
+      {
+        "json": {
+          "output": "```json\n{\n  \"anomalies\": [],  \"summary\": {\n    \"total_anomalies\": 0,\n    \"high\": 0,\n    \"medium\": 0,\n    \"low\": 0,\n    \"total_suspicious_amount\": 0,\n    \"top_risk_vendor\": null,\n    \"top_risk_employee\": null,\n    \"overall_risk_level\": \"green\"\n  }\n}\n```\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\"anomalies\": [\n    {\n      \"transaction_id\": \"TXN002\",\n      \"anomaly_type\": \"budget_overrun\",\n      \"severity\": \"medium\",\n      \"fraud_score\": 45,\n      \"confidence\": 0.7,\n      \"reason\": \"Category 'Travel' exceeded 10% deviation from departmental travel budget allocation for Q2 2026\",\n      \"recommendation\": \"Review department head's travel budget activation controls\",\n      \"related_transactions\": [\"TXN002\"],\n      \"amount\": 558.75,\n      \"vendor\": \"N/A\",\n      \"employee\": \"N/A\",\n      \"weekend_flag\": false,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 1,\n    \"low\": 0,\n    \"total_suspicious_amount\": 558.75,\n    \"top_risk_vendor\": \"N/A\",\n    \"top_risk_employee\": \"N/A\",\n    \"overall_risk_level\": \"elevated\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"anomalies\": [    {\n      \"transaction_id\": \"TXN003\",\n      \"anomaly_type\": \"low_severity_budget_overrun\",\n      \"severity\": \"LOW\",\n      \"fraud_score\": 12,\n      \"confidence\": 0.6,\n      \"reason\": \"Meals category total of $66.90 exceeds typical departmental budget thresholds when normalized against employee count (7.1% of daily spend attributed to 21 Marketing team members)\",\n      \"recommendation\": \"Monitor category spending patterns; verify budget allocation accuracy\",\n      \"related_transactions\": [],\n      \"vendor\": \"Starbucks\",\n      \"employee\": \"Amit Patel\",\n      \"weekend_flag\": false,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 0,\n    \"low\": 1,\n    \"total_suspicious_amount\": 66.9,\n    \"top_risk_vendor\": \"Starbucks\",\n    \"top_risk_employee\": \"Amit Patel\",\n    \"overall_risk_level\": \"LOW\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"anomalies\":[\n    {\n      \"transaction_id\": \"TXN004\",\n      \"anomaly_type\": \"policy_violation\",\n      \"severity\": \"LOW\",\n      \"fraud_score\": 30,\n      \"confidence\": 0.75,\n      \"reason\": \"Weekend purchase in non-travel category (Equipment) without prior budget allocation\",\n      \"recommendation\": \"Verify if weekend IT equipment purchases have specific approval process; flag for manager review\",\n      \"related_transactions\": [],\n      \"amount\": 250,\n      \"vendor\": \"Flipkart\",\n      \"employee\": \"Sneha Joshi\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 0,\n    \"low\": 1,\n    \"total_suspicious_amount\": 250,\n    \"top_risk_vendor\": \"Flipkart\",\n    \"top_risk_employee\": \"Sneha Joshi\",\n    \"overall_risk_level\": \"MINIMAL\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"anomalies\": [\n    {\n      \"transaction_id\": \"TXN005\",\n      \"anomaly_type\": \"POLICY_VIOLATION\",\n      \"severity\": \"MEDIUM\",\n      \"fraud_score\": 75,\n      \"confidence\": 0.8,\n      \"reason\": \"Weekend purchase in non-travel category (Meals)\",\n      \"recommendation\": \"Flag for manager review - non-travel category expenses are prohibited on weekends per policy\",\n      \"related_transactions\": [],\n      \"amount\": 35.6,\n      \"vendor\": \"Zomato\",\n      \"employee\": \"Rahul Sharma\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 1,\n    \"low\": 0,\n    \"total_suspicious_amount\": 35.6,\n    \"top_risk_vendor\": \"Zomato\",\n    \"top_risk_employee\": \"Rahul Sharma\",\n    \"overall_risk_level\": \"MEDIUM\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\"anomalies\": [\n    {\n      \"transaction_id\": \"TXN006\",\n      \"anomaly_type\": \"duplicate\",\n      \"severity\": \"medium\",\n      \"fraud_score\": 65,\n      \"confidence\": 0.9,\n      \"reason\": \"Identified as duplicate transaction in pre-detection logs with 90% confidence (test case).\",\n      \"recommendation\": \"Verify with finance team and block if confirmed\",\n      \"related_transactions\": [\"TXN006\", \"TXN007\"],\n      \"amount\": 120.5,\n      \"vendor\": \"Amazon Business\",\n      \"employee\": \"Rahul Sharma\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    },\n    {\n      \"transaction_id\": \"TXN006\",\n      \"anomaly_type\": \"policy_violation\",\n      \"severity\": \"medium\",\n      \"fraud_score\": 75,\n      \"confidence\": 0.85,\n      \"reason\": \"Weekend purchase in Office Supplies category, a non-travel expenditure category\",\n      \"recommendation\": \"Flag for manual review due to weekend purchase in restricted category\",\n      \"related_transactions\": [],\n      \"amount\": 120.5,\n      \"vendor\": \"Amazon Business\",\n      \"employee\": \"Rahul Sharma\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 2,\n    \"high\": 0,\n    \"medium\": 2,\n    \"low\": 0,\n    \"total_suspicious_amount\": 120.5,\n    \"top_risk_vendor\": \"Amazon Business\",\n    \"top_risk_employee\": \"Rahul Sharma\",\n    \"overall_risk_level\": \"high\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"anomalies\": [\n    {\n      \"transaction_id\": \"TXN007\",\n      \"anomaly_type\": \"MINOR_SUSPICIOUS_MERCHANT_NAME\",\n      \"severity\": \"LOW\",\n      \"fraud_score\": 22,\n      \"confidence\": 0.73,\n      \"reason\": \"Vendor name 'MakeMyTrip' closely resembles 'Amazon' (differing by 1 character). This could indicate a typo or attempt to mimic a legitimate vendor. Amazon-related transactions often require heightened scrutiny.\",\n      \"recommendation\": \"Verify merchant name with payee account details; cross-reference with previous transactions to confirm consistency\",\n      \"related_transactions\": [],\n      \"amount\": 540,\n      \"vendor\": \"MakeMyTrip\",\n      \"employee\": \"Priya Singh\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 0,\n    \"low\": 1,\n    \"total_suspicious_amount\": 540,\n    \"top_risk_vendor\": null,\n    \"top_risk_employee\": null,\n    \"overall_risk_level\": \"LOW\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\"anomalies\": [\n    {\n      \"transaction_id\": \"TXN008\",\n      \"anomaly_type\": \"POLICY_VIOLATION\",\n      \"severity\": \"Medium\",\n      \"fraud_score\": 35,\n      \"confidence\": 0.87,\n      \"reason\": \"Weekend purchase in non-travel category (Meals) violates policy VS-CAT-WEEKEND RESTRICTIVE\",\n      \"recommendation\": \"Review weekend meal policy exceptions; validate employee location compliance\",\n      \"amount\": 22.1,\n      \"vendor\": \"Swiggy\",\n      \"employee\": \"Amit Patel\",\n      \"weekend_flag\": true,\n      \"amount\": 22.1,\n      \"vendor\": \"Swiggy\",\n      \"employee\": \"Amit Patel\"\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 1,\n    \"low\": 0,\n    \"total_suspicious_amount\": 22.1,\n    \"top_risk_vendor\": \"Swiggy\",\n    \"top_risk_employee\": \"Amit Patel\",\n    \"overall_risk_level\": \"Medium\"\n  }\n}\n"
+        }
+      },
+      {
+        "json": {
+          "output": "```json\n{\n  \"anomalies\": [\n    {\n      \"transaction_id\": \"TXN009\",\n      \"anomaly_type\": \"weekend_transaction\",\n      \"severity\": \"MEDIUM\",\n      \"fraud_score\": 35,\n      \"confidence\": 0.68,\n      \"reason\": \"Purchased on a weekend in a non-travel category (Software) despite organizational policy restricting non-travel category expenses outside standard business hours\",\n      \"recommendation\": \"Review justification. If critical, document exception policy with manager approval; consider travel-restricted software purchases only allowed after-v-hours with documented necessity\",\n      \"related_transactions\": [],\n      \"amount\": 799,\n      \"vendor\": \"Adobe\",\n      \"employee\": \"Sneha Joshi\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 1,\n    \"high\": 0,\n    \"medium\": 1,\n    \"low\": 0,\n    \"total_suspicious_amount\": 799,\n    \"top_risk_vendor\": \"Adobe\",\n    \"top_risk_employee\": \"Sneha Joshi\",\n    \"overall_risk_level\": \"MODERATE\"\n  }\n}\n```\n"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"anomalies\": [\n    {\n      \"transaction_id\": \"TXN010\",\n      \"anomaly_type\": \"policy violation\",\"severity\": \"medium\",\n      \"fraud_score\": 70,\n      \"confidence\": 0.9,\n      \"reason\": \"weekend transaction in non-travel category\",\n      \"recommendation\": \"Review weekend purchase policy for equipment\",\n      \"related_transactions\": [],\n      \"amount\": 1500,\n      \"vendor\": \"Local Electronics\",\n      \"employee\": \"Rahul Sharma\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    },\n    {\n      \"transaction_id\": \"TXN010\",\n      \"anomaly_type\": \"policy violation\",\n      \"severity\": \"medium\",\n      \"fraud_score\": 70,\n      \"confidence\": 0.9,\n      \"reason\": \"Single vendor spend exceeds 40% of department allocation\",\n      \"recommendation\": \"Investigate vendor portfolio concentration\",\n      \"related_transactions\": [],\n      \"amount\": 1500,\n      \"vendor\": \"Local Electronics\",\n      \"employee\": \"Rahul Sharma\",\n      \"weekend_flag\": true,\n      \"round_number_flag\": false\n    }\n  ],\n  \"summary\": {\n    \"total_anomalies\": 2,\n    \"high\": 0,\n    \"medium\": 2,\n    \"low\": 0,\n    \"total_suspicious_amount\": 1500,\n    \"top_risk_vendor\": \"Local Electronics\",\n    \"top_risk_employee\": \"Rahul Sharma\",\n    \"overall_risk_level\": \"high\"\n  }\n}\n"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "`Fetch Transactions` (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "`Fetch Transactions` (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Pre-Process & Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-Process & Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "AI Anomaly Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Anomaly Detection",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Anomaly Detection": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Gmail Alert — High Severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack — Medium Severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Node — Low Severity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Log": {
+      "main": [
+        []
+      ]
+    },
+    "Set Node — Low Severity": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Slack — Medium Severity": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gmail Alert — High Severity": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7c0d30f4-0aef-4e47-9450-d4dfa0abddd3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "olTTPupSTvcupj1F",
+  "tags": []
+}

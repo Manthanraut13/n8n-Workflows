@@ -1,0 +1,618 @@
+{
+  "name": "AI Reels Script Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8",
+          "mode": "list",
+          "cachedResultName": "AI Reels Script Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Reel_Ideas",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        0
+      ],
+      "id": "5fd3a98e-18e2-44cd-a592-e69de7977fba",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "dgP9j24Jk0fX5lVf",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "942f2e29-3e2a-494b-9bff-056dc619b79a",
+              "name": "Idea",
+              "value": "={{ $json.Idea }}",
+              "type": "string"
+            },
+            {
+              "id": "e631e5d8-0643-44ff-9b7b-83e8befa0c24",
+              "name": "Niche",
+              "value": "={{ $json.Niche }}",
+              "type": "string"
+            },
+            {
+              "id": "a721a088-b7f7-45f8-9af6-d8b9de5d0ed8",
+              "name": "Tone",
+              "value": "={{ $json.Tone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "bfe782fa-05f1-4033-95d1-7604fde5059e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write ONE scroll-stopping hook for a short-form video.\n\nVideo Idea:{{ $json.Idea }}\nNiche: {{ $json.Niche }}\nTone: {{ $json.Tone }}\n\nRules:\n- 10 to 12 words maximum\n- Start with a strong pattern interrupt (question, bold claim, shocking statement, or “You’re doing X wrong”)\n- Create curiosity that forces viewers to keep watching\n- Match the specified tone\n- Output ONLY the hook text\n",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a professional short-form video scriptwriter who creates high-retention hooks for Instagram Reels and YouTube Shorts. Your goal is to write hooks that stop scrolling within the first 2 seconds."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        352,
+        0
+      ],
+      "id": "e02795d2-f4d0-42f6-850d-acf6a989a415",
+      "name": "AI Agent - Hook Generator"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a complete spoken script for a 20–40 second Instagram Reel or YouTube Short.\n\nHook (already created):\n{{ $node[\"AI Agent - Hook Generator\"].json.text }}\n\nVideo Idea:\n{{ $('Edit Fields').item.json.Idea }}\n\nNiche:{{ $('Edit Fields').item.json.Niche }}\n\n\nTone:{{ $('Edit Fields').item.json.Tone }}\n\n\nScript Structure:\n1. Hook (first 2 seconds) – Use the provided hook exactly\n2. Problem / Context (5–8 seconds) – Why this matters\n3. Main Content (10–20 seconds) – 2–3 key points, tips, or story beats\n4. CTA / Payoff (3–5 seconds) – Strong ending that drives engagement\n\nRules:\n- Write exactly how someone would speak on camera\n- Use casual, natural, conversational language\n- Use short sentences\n- Add natural pauses using \"...\"\n- Total length: 90–150 words\n- Maintain the specified tone throughout\n- No stage directions or emojis\n- Make it binge-worthy, engaging, and shareable\n\nOutput Format:\n\n[Hook]\n(hook text)\n\n[Script]\n(full spoken script)\n\nBegin.\n",
+        "options": {
+          "systemMessage": "You are a viral short-form video scriptwriter who specializes in high-retention Instagram Reels and YouTube Shorts.\nYou write scripts that sound natural when spoken on camera and keep viewers watching until the end.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        640,
+        0
+      ],
+      "id": "8178f5dd-f846-4713-8aef-f0280a87d7e3",
+      "name": "AI Agent - Script Generator"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a video editor creating on-screen captions for a short-form video.\n\nFULL SCRIPT:{{ $json.output }}\n\n\nTASK: Extract 4-6 SHORT on-screen text captions that will appear during the video.\n\nRULES:\n- Each caption: 3-8 words maximum\n- Highlight the most impactful/quotable moments\n- Use power words and emotional triggers\n- Format for easy reading (short phrases)\n- Separate each caption with \" | \"\n\nEXAMPLE OUTPUT:\nMorning routines FAIL | Here's why | Willpower is LIMITED | Try this instead | Stack your habits | You'll thank me later\n\nOUTPUT (captions only, separated by |):",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        928,
+        0
+      ],
+      "id": "bb56f8e7-fcba-4225-9fe2-952cac7faa3e",
+      "name": "AI Agent - Captions Generator"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a social media manager writing an Instagram Reel caption.\n\nVIDEO TOPIC: {{ $('Edit Fields').item.json.Idea }}\nNICHE: {{ $('Edit Fields').item.json.Niche }}\nHOOK: {{ $('AI Agent - Hook Generator').item.json.text }}\nTASK: Write a complete Instagram caption with hashtags.\n\nCAPTION STRUCTURE:\n1. Opening line (repurpose the hook or create intrigue)\n2. 2-3 sentences expanding on the video topic\n3. Call-to-action (Save this, Share with someone who needs this, Follow for more, etc.)\n4. Relevant emoji (2-4 strategically placed)\n5. Line break\n6. 15-25 hashtags (mix of popular, niche-specific, and long-tail)\n\nRULES:\n- Conversational and engaging tone\n- Front-load the most important info\n- Use line breaks for readability\n- Hashtags should be relevant to {{$json.content_niche}}\n- Include a clear CTA\n\nOUTPUT:",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1216,
+        0
+      ],
+      "id": "9e25da01-346f-420e-9e14-9bcbfb08902d",
+      "name": "AI Agent - Post Caption Generator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f133679-7443-4ab4-ad4f-8973195b14bc",
+              "name": "Idea",
+              "value": "={{ $('Edit Fields').item.json.Idea }}",
+              "type": "string"
+            },
+            {
+              "id": "2888bb90-ed94-4375-a437-62b1a6105cae",
+              "name": "Niche",
+              "value": "={{ $('Edit Fields').item.json.Niche }}",
+              "type": "string"
+            },
+            {
+              "id": "289a13c9-4b8b-44f4-98a7-a69d93147b84",
+              "name": "Tone",
+              "value": "=FixedExpression={{ $('Edit Fields').item.json.Tone }}",
+              "type": "string"
+            },
+            {
+              "id": "7249d4ba-4c0b-4764-a1d3-d1e420a2fa4b",
+              "name": "hook",
+              "value": "={{ $('AI Agent - Hook Generator').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "1d58bdae-5e8c-4861-9e57-f17fb9cee9fd",
+              "name": "script",
+              "value": "={{ $('AI Agent - Script Generator').item.json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "bab898d6-2d01-4532-a643-dbb50171932d",
+              "name": "post_caption",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "8fc31205-55ae-44fd-bf4f-d352d23b5aa8",
+              "name": "captions",
+              "value": "={{ $('AI Agent - Captions Generator').item.json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "aa243ec0-89b9-458e-8359-c61e894144f0",
+              "name": "status",
+              "value": "Completed",
+              "type": "string"
+            },
+            {
+              "id": "82962ca5-0563-4c78-ae98-9baf67fdefe9",
+              "name": "timestamp",
+              "value": "={{ $now.toString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        0
+      ],
+      "id": "dd3090c3-6e61-4736-abd4-faea68268f67",
+      "name": "Format Output Data"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8",
+          "mode": "list",
+          "cachedResultName": "AI Reels Script Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 426474626,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/120qggHTYmmm8d--Di00dvuqVVh_B1n3ekku3Bietiz8/edit#gid=426474626"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Idea": "={{ $json.Idea }}",
+            "Niche": "={{ $json.Niche }}",
+            "Tone": "={{ $json.Tone }}",
+            "Hook": "={{ $json.hook }}",
+            "Script": "={{ $json.script }}",
+            "Captions": "={{ $json.captions }}",
+            "Post_Caption": "={{ $json.post_caption }}",
+            "Status": "={{ $json.status }}",
+            "Timestamp": "={{ $json.timestamp }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Idea",
+              "displayName": "Idea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Niche",
+              "displayName": "Niche",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tone",
+              "displayName": "Tone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Hook",
+              "displayName": "Hook",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Script",
+              "displayName": "Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Captions",
+              "displayName": "Captions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post_Caption",
+              "displayName": "Post_Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1696,
+        0
+      ],
+      "id": "a880b9fb-0e5e-451c-b672-a0cc3cd4904c",
+      "name": "Update Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "=✅ New Reel Script Generated: {{ $json.Idea }}",
+        "message": "=<h2>🎬 Your Reel Script is Ready!</h2>\n\n<p><strong>Topic:</strong> {{ $json.Idea }}</p>\n<p><strong>Niche:</strong> {{ $json.Niche }}</p>\n\n<hr>\n\n<h3>🎯 Hook (First 2 Seconds)</h3>\n<p>{{ $json.Hook }}</p>\n\n<h3>📝 Full Script</h3>\n<p style=\"white-space: pre-wrap;\">{{ $json.Script }}</p>\n\n<h3>💬 On-Screen Captions</h3>\n<p>{{ $json.Captions }}</p>\n\n<h3>📱 Instagram Caption</h3>\n<p style=\"white-space: pre-wrap;\">{{ $json.Post_Caption }}</p>\n\n<hr>\n\n<p><em>Generated at: {{ $json.Timestamp }}</em></p>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1888,
+        0
+      ],
+      "id": "825802af-5cb3-46f1-a3d8-1b60eb92454b",
+      "name": "Send Email Notification",
+      "webhookId": "9dbec36e-92f3-49f5-bd64-327ee49dd5fe",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {
+          "maxTokens": 100,
+          "temperature": 0.8
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        336,
+        208
+      ],
+      "id": "5188a0a4-b7e3-44b7-a565-a2af0a08cd05",
+      "name": "Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {
+          "maxTokens": 400,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        640,
+        208
+      ],
+      "id": "8c9d1b35-2e71-42ef-9659-e6f3c3923c14",
+      "name": "Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "options": {
+          "maxTokens": 300,
+          "temperature": 0.6
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        928,
+        208
+      ],
+      "id": "dd986935-9494-454d-8168-9c82fa6f201c",
+      "name": "Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-3-12b-it:free",
+        "options": {
+          "maxTokens": 400,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1216,
+        224
+      ],
+      "id": "0e894efa-7629-45e3-a725-493c31662e66",
+      "name": "Model3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Hook Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Hook Generator": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Script Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Script Generator": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Captions Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Captions Generator": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Post Caption Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Post Caption Generator": {
+      "main": [
+        [
+          {
+            "node": "Format Output Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output Data": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Hook Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Script Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Captions Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Post Caption Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e478484b-8004-443e-98cd-c5f23cdfef09",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "Va329SF5ZNiZHOwB",
+  "tags": []
+}

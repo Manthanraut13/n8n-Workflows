@@ -1,0 +1,764 @@
+{
+  "name": "AI Inventory Demand Forecasting & Auto-Reorder System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        -48
+      ],
+      "id": "19cfb75c-0418-440c-b87a-6122af38ac1c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc",
+          "mode": "list",
+          "cachedResultName": "AI Inventory Demand Forecasting & Auto-Reorder System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Inventory Table ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        320,
+        -192
+      ],
+      "id": "fcb88fe4-91bb-4054-b1ef-3a27d3fd25cf",
+      "name": "Fetch Inventory Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc",
+          "mode": "list",
+          "cachedResultName": "AI Inventory Demand Forecasting & Auto-Reorder System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1368983359,
+          "mode": "list",
+          "cachedResultName": "Sales History Table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit#gid=1368983359"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        320,
+        -48
+      ],
+      "id": "d9043f7a-72f3-4003-ac80-5252a70a2387",
+      "name": "Fetch Sales History",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc",
+          "mode": "list",
+          "cachedResultName": "AI Inventory Demand Forecasting & Auto-Reorder System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1584781752,
+          "mode": "list",
+          "cachedResultName": "Suppliers Table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit#gid=1584781752"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        320,
+        112
+      ],
+      "id": "b063cc96-6879-44fb-9a6e-c41798947635",
+      "name": "Fetch Supplier Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        944,
+        -64
+      ],
+      "id": "e5433552-ee86-471a-8296-cb79b9939fe6",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "model": "arcee-ai/trinity-large-preview:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        -176
+      ],
+      "id": "6bdf89c2-8823-4356-b23d-8cba5bfc485b",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "Supplier_ID",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        528,
+        -64
+      ],
+      "id": "570991e7-1a88-4b54-a481-fa5c0b70a516",
+      "name": "Merge Supplier Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Feature Engineering Node\n// Input 0 = Merge Supplier Data\n// Input 1 = Sales History\n\nconst today = new Date();\nconst MS_PER_DAY = 86400000;\n\n// Ensure inputs exist\nconst inventoryItems = $input.all(0) || [];\nconst salesItems = $input.all(1) || [];\n\nif (inventoryItems.length === 0) {\n  return [];\n}\n\n// Convert sales rows\nconst salesRaw = salesItems.map(i => i.json);\n\n// ---------- Helper Functions ----------\n\nfunction getDaysSince(dateStr) {\n  if (!dateStr) return 9999;\n  return (today - new Date(dateStr)) / MS_PER_DAY;\n}\n\nfunction groupSalesBySku(rows) {\n  const map = {};\n\n  for (const row of rows) {\n    const sku = row.SKU;\n    if (!sku) continue;\n\n    if (!map[sku]) map[sku] = [];\n\n    map[sku].push({\n      date: row.Date,\n      units: Number(row.Units_Sold) || 0\n    });\n  }\n\n  return map;\n}\n\nfunction calcVelocity(sales, days) {\n  const cutoff = new Date(today - days * MS_PER_DAY);\n\n  const filtered = sales.filter(s => new Date(s.date) >= cutoff);\n\n  const total = filtered.reduce((sum, s) => sum + s.units, 0);\n\n  return Number((total / days).toFixed(4));\n}\n\nfunction calcSeasonalityIndex(sales) {\n  const now = today.getTime();\n  const d30 = now - 30 * MS_PER_DAY;\n  const d60 = now - 60 * MS_PER_DAY;\n\n  const recent = sales.filter(s => new Date(s.date).getTime() >= d30);\n  const prior = sales.filter(s => {\n    const t = new Date(s.date).getTime();\n    return t >= d60 && t < d30;\n  });\n\n  const recentTotal = recent.reduce((s,x)=>s+x.units,0);\n  const priorTotal = prior.reduce((s,x)=>s+x.units,0);\n\n  const recentAvg = recentTotal / 30;\n  const priorAvg = priorTotal / 30;\n\n  return priorAvg > 0 ? Number((recentAvg / priorAvg).toFixed(4)) : 1;\n}\n\n// ---------- Prepare Sales Map ----------\n\nconst salesBySku = groupSalesBySku(salesRaw);\n\n// ---------- Feature Engineering ----------\n\nconst enriched = inventoryItems.map(item => {\n\n  const inv = item.json;\n  const sku = inv.SKU;\n\n  const sales = salesBySku[sku] || [];\n\n  const currentStock = Number(inv.Current_Stock) || 0;\n  const leadTime = Number(inv.Lead_Time_Days) || 7;\n\n  const velocity7 = calcVelocity(sales, 7);\n  const velocity30 = calcVelocity(sales, 30);\n  const seasonIdx = calcSeasonalityIndex(sales);\n\n  const daysRemaining =\n    velocity7 > 0\n      ? Number((currentStock / velocity7).toFixed(1))\n      : 9999;\n\n  const sales90 = sales\n    .filter(s => getDaysSince(s.date) <= 90)\n    .sort((a,b)=>new Date(a.date)-new Date(b.date));\n\n  return {\n    json: {\n      SKU: sku,\n      Current_Stock: currentStock,\n      Reorder_Point: Number(inv.Reorder_Point) || 0,\n      Supplier_ID: inv.Supplier_ID,\n      Supplier_Name: inv.Supplier_Name,\n      Supplier_Email: inv.Supplier_Email,\n      Minimum_Order_Qty: Number(inv.Minimum_Order_Qty) || 0,\n      Lead_Time_Days: leadTime,\n      Unit_Cost: Number(inv.Unit_Cost) || 0,\n      sales_velocity_7_day: velocity7,\n      sales_velocity_30_day: velocity30,\n      seasonality_index: seasonIdx,\n      days_of_inventory_remaining: daysRemaining,\n      sales_history_90d: sales90,\n      is_critical: currentStock === 0 || daysRemaining < leadTime\n    }\n  };\n\n});\n\nreturn enriched;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -64
+      ],
+      "id": "0101558b-5c92-4fc4-91ba-c668f0976d93",
+      "name": "Feature Engineering"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Forecast demand for the following SKU based on this enriched data:\n \nSKU Data:\n{\n  \"SKU\": \"{{$json.SKU}}\",\n  \"current_stock\": {{$json.Current_Stock}},\n  \"lead_time_days\": {{$json.Lead_Time_Days}},\n  \"reorder_point\": {{$json.Reorder_Point}},\n  \"sales_velocity_7_day\": {{$json.sales_velocity_7_day}},\n  \"sales_velocity_30_day\": {{$json.sales_velocity_30_day}},\n  \"seasonality_index\": {{$json.seasonality_index}},\n  \"days_of_inventory_remaining\": {{$json.days_of_inventory_remaining}},\n  \"sales_history_90d\": {{JSON.stringify($json.sales_history_90d)}}\n}\n \nAnalyze trends and produce your JSON forecast now.",
+        "options": {
+          "systemMessage": "=You are an expert inventory demand forecasting AI for an e-commerce business.\nYou analyze sales velocity, seasonality trends, and historical patterns to forecast \nfuture demand and flag reorder urgency.\n \nRULES:\n- Respond ONLY with valid JSON. No markdown, no explanation, no preamble.\n- All numeric fields must be numbers (not strings).\n- confidence_score must be between 0.0 and 1.0.\n- seasonality_flag: true if seasonality_index deviates >20% from 1.0.\n- forecast values must be integers (whole units).\n- base your forecast on weighted velocity: 70% 7-day velocity, 30% 30-day velocity.\n- apply seasonality_index multiplier to forecast.\n \nOUTPUT SCHEMA (strict):\n{\n  \"SKU\": \"string\",\n  \"forecast_14_days\": integer,\n  \"forecast_30_days\": integer,\n  \"confidence_score\": float,\n  \"seasonality_flag\": boolean,\n  \"trend_direction\": \"increasing|stable|decreasing\",\n  \"reorder_urgency\": \"critical|high|medium|low\",\n  \"reasoning\": \"one sentence max\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1168,
+        -48
+      ],
+      "id": "57f8704b-3890-4131-9ebf-6d6323eeee15",
+      "name": "AI Demand Forecast"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: AI Response Parser — JavaScript Code Node\n// Handles markdown fences, partial JSON, and missing fields\n\nconst items = $input.all();\n\nfunction safeParseJSON(text) {\n\n  let cleaned = (text || \"\")\n    .replace(/```json\\n?/g, \"\")\n    .replace(/```\\n?/g, \"\")\n    .trim();\n\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n\n  if (!match) return null;\n\n  try {\n    return JSON.parse(match[0]);\n  } catch {\n\n    const fixedJson = match[0].replace(/,\\s*([}\\]])/g, \"$1\");\n\n    try {\n      return JSON.parse(fixedJson);\n    } catch {\n      return null;\n    }\n  }\n}\n\nconst results = items.map((item, index) => {\n\n  const rawResponse =\n      item.json.choices?.[0]?.message?.content\n      || item.json.content?.[0]?.text\n      || item.json.output\n      || \"\";\n\n  const feData = $items(\"Merge Supplier Data\")[index]?.json || {};\n\n  const sku = feData.SKU || \"UNKNOWN\";\n\n  const parsed = safeParseJSON(rawResponse);\n\n  const defaults = {\n    SKU: sku,\n    forecast_14_days: Math.round((feData.sales_velocity_30_day || 0) * 14),\n    forecast_30_days: Math.round((feData.sales_velocity_30_day || 0) * 30),\n    confidence_score: 0.5,\n    seasonality_flag: false,\n    trend_direction: \"stable\",\n    reorder_urgency: \"medium\",\n    reasoning: \"Fallback: AI response parse failed, using velocity-based estimate\",\n    parse_failed: true\n  };\n\n  const result = parsed ? {\n    SKU: parsed.SKU || sku,\n    forecast_14_days: parseInt(parsed.forecast_14_days) || defaults.forecast_14_days,\n    forecast_30_days: parseInt(parsed.forecast_30_days) || defaults.forecast_30_days,\n    confidence_score: parseFloat(parsed.confidence_score) || defaults.confidence_score,\n    seasonality_flag: Boolean(parsed.seasonality_flag),\n    trend_direction: parsed.trend_direction || defaults.trend_direction,\n    reorder_urgency: parsed.reorder_urgency || defaults.reorder_urgency,\n    reasoning: parsed.reasoning || \"\",\n    parse_failed: false\n  } : defaults;\n\n  return {\n    json: {\n      ...feData,\n      ...result,\n      forecast_generated_at: new Date().toISOString()\n    }\n  };\n});\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -48
+      ],
+      "id": "74e80ddf-60fe-4f56-a420-bdb6221f2dfb",
+      "name": "AI Response Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "33fad9c3-cbf6-4485-ba2a-efceeeaae495",
+              "leftValue": "={{ $json.is_critical }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "82baea29-1180-410c-a7e8-6abd81cfe667",
+              "leftValue": "={{ $json.needs_reorder }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1888,
+        -48
+      ],
+      "id": "580ec470-a8ee-4cbf-9175-7a14243e04b0",
+      "name": "IF: Needs Reorder Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5098b038-afb4-44bd-8d29-2073f5624c95",
+              "leftValue": "={{ $json.is_critical }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        208
+      ],
+      "id": "935e688d-945a-4efb-bb84-9cd5ce71eb77",
+      "name": "IF: Critical Stock Alert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Purchase Order Generator — JavaScript Code Node\n\nfunction generatePOId(sku) {\n  const date = new Date().toISOString().slice(0,10).replace(/-/g,\"\");\n  const random = Math.random().toString(36).substring(2,8).toUpperCase();\n  return `PO-${date}-${random}`;\n}\n\nfunction generateToken() {\n  return Math.random().toString(36).substring(2) +\n         Math.random().toString(36).substring(2);\n}\n\nfunction calcExpectedDelivery(leadTimeDays) {\n  const d = new Date();\n  d.setDate(d.getDate() + (leadTimeDays || 7) + 1);\n  return d.toISOString().slice(0,10);\n}\n\nreturn $input.all()\n  .filter(item => item.json.needs_reorder)\n  .map(item => {\n\n    const d = item.json;\n\n    const qty = Number(d.optimal_reorder_qty) || 0;\n    const unitCost = Number(d.Unit_Cost) || 0;\n\n    return {\n      json: {\n\n        PO_ID: generatePOId(d.SKU),\n\n        SKU: d.SKU,\n\n        Supplier_ID: d.Supplier_ID,\n\n        Supplier_Name: d.Supplier_Name,\n\n        Supplier_Email: d.Supplier_Email,\n\n        Quantity: qty,\n\n        Unit_Cost: unitCost,\n\n        Estimated_Total_Cost: unitCost ? unitCost * qty : null,\n\n        Expected_Delivery_Date: calcExpectedDelivery(d.Lead_Time_Days),\n\n        Lead_Time_Days: d.Lead_Time_Days,\n\n        Current_Stock: d.Current_Stock,\n\n        Reorder_Point: d.Reorder_Point,\n\n        Forecast_14_Days: d.forecast_14_days,\n\n        Forecast_30_Days: d.forecast_30_days,\n\n        Confidence_Score: d.confidence_score,\n\n        Reorder_Urgency: d.reorder_urgency,\n\n        Is_Critical: d.is_critical,\n\n        Status: \"PENDING_APPROVAL\",\n\n        Created_At: new Date().toISOString(),\n\n        Approval_Token: generateToken()\n\n      }\n    };\n\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        192
+      ],
+      "id": "deaae0cd-ef8d-4ae5-b3fb-aa9c8de7a597",
+      "name": "Purchase Order Generator"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "= [Inventory Alert] {{$json.Reorder_Urgency.toUpperCase()}} — SKU {{$json.SKU}} Needs Reorder",
+        "message": "=  INVENTORY REORDER REQUEST — {{$json.PO_ID}}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n \nSKU:                {{$json.SKU}}\nCurrent Stock:      {{$json.Current_Stock}} units\nReorder Point:      {{$json.Reorder_Point}} units\nStatus:             {{$json.Is_Critical ? \"🔴 CRITICAL\" : \"🟡 LOW STOCK\"}}\n \n━━━━ FORECAST ━━━━━━━━━━━━━━━━━━━━━━━━\nDemand (14 Days):   {{$json.Forecast_14_Days}} units\nDemand (30 Days):   {{$json.Forecast_30_Days}} units\nAI Confidence:      {{Math.round($json.Confidence_Score * 100)}}%\nSeasonality Flag:   {{$json.seasonality_flag ? \"Yes — seasonal spike detected\" : \"No\"}}\n \n━━━━ PURCHASE ORDER ━━━━━━━━━━━━━━━━━━\nSupplier ID:        {{$json.Supplier_ID}} units\nLead Time:          {{$json.Lead_Time_Days}} days\nExpected Delivery:  {{$json.Expected_Delivery_Date}}\nEst. Cost:          {{$json.Estimated_Total_Cost ? \"$\" + $json.Estimated_Total_Cost.toFixed(2) : \"N/A\"}}\n \n━━━━ ACTION REQUIRED ━━━━━━━━━━━━━━━━━\n✅ APPROVE: https://your-domain.com/approve?token={{$json.Approval_Token}}&po={{$json.PO_ID}}\n❌ REJECT:  https://your-domain.com/reject?token={{$json.Approval_Token}}&po={{$json.PO_ID}}\n \nThis purchase order was auto-generated by the AI Inventory System.\nPlease approve or reject within 24 hours to maintain supply chain continuity.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        928,
+        192
+      ],
+      "id": "fa4bc627-492c-45ea-977a-d5a4b42e338a",
+      "name": "Send Approval Notification",
+      "webhookId": "17fa3165-a542-4358-8868-d64bb8a8095c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc",
+          "mode": "list",
+          "cachedResultName": "AI Inventory Demand Forecasting & Auto-Reorder System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1248489354,
+          "mode": "list",
+          "cachedResultName": "Purchase Orders Table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit#gid=1248489354"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "PO_ID": "={{ $('Purchase Order Generator').item.json.PO_ID }}",
+            "SKU": "={{ $('Purchase Order Generator').item.json.SKU }}",
+            "Quantity": "={{ $('Purchase Order Generator').item.json.Quantity }}",
+            "Supplier_ID": "={{ $('Purchase Order Generator').item.json.Supplier_ID }}",
+            "Expected_Delivery": "={{ $('Purchase Order Generator').item.json.Expected_Delivery_Date }}",
+            "Status": "={{ $('Purchase Order Generator').item.json.Status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "PO_ID",
+              "displayName": "PO_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SKU",
+              "displayName": "SKU",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Quantity",
+              "displayName": "Quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Supplier_ID",
+              "displayName": "Supplier_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Expected_Delivery",
+              "displayName": "Expected_Delivery",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1136,
+        192
+      ],
+      "id": "515ed497-a027-4331-962f-b330e2dae6d7",
+      "name": "Store Purchase Order",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc",
+          "mode": "list",
+          "cachedResultName": "AI Inventory Demand Forecasting & Auto-Reorder System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1283099030,
+          "mode": "list",
+          "cachedResultName": "Forecast Results Table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qCO9yv-4CgrjSmw1t-Oh64remBo15tLv0OwHFlRqSoc/edit#gid=1283099030"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SKU": "={{ $('Purchase Order Generator').item.json.SKU }}",
+            "forecast_14_days": "={{ $('Purchase Order Generator').item.json.Forecast_14_Days }}",
+            "forecast_30_days": "={{ $('Purchase Order Generator').item.json.Forecast_30_Days }}",
+            "confidence_score": "={{ $('Purchase Order Generator').item.json.Confidence_Score }}",
+            "generated_at": "={{ $('Purchase Order Generator').item.json.Created_At }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "SKU",
+              "displayName": "SKU",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "forecast_14_days",
+              "displayName": "forecast_14_days",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "forecast_30_days",
+              "displayName": "forecast_30_days",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence_score",
+              "displayName": "confidence_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seasonality_flag",
+              "displayName": "seasonality_flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "trend_direction",
+              "displayName": "trend_direction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "generated_at",
+              "displayName": "generated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        192
+      ],
+      "id": "d0b9b560-f1ee-4763-9fe9-d7515a3b37b4",
+      "name": "Store Forecast Results",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const SAFETY_STOCK_MULTIPLIER = 1.25;\nconst MIN_SAFETY_STOCK_DAYS = 5;\n\nreturn $input.all().map(item => {\n\n  const d = item.json;\n\n  const forecast30 = Number(d.forecast_30_days) || 0;\n  const leadTime = Number(d.Lead_Time_Days) || 7;\n  const currentStock = Number(d.Current_Stock) || 0;\n  const reorderPoint = Number(d.Reorder_Point) || 0;\n  const velocity7 = Number(d.sales_velocity_7_day) || 0;\n  const supplierMinQty = Number(d.Minimum_Order_Qty) || 1;\n\n  const dailyDemand = forecast30 / 30;\n\n  const leadTimeDemand = dailyDemand * leadTime;\n\n  const safetyStock = Math.max(\n    leadTimeDemand * (SAFETY_STOCK_MULTIPLIER - 1),\n    velocity7 * MIN_SAFETY_STOCK_DAYS\n  );\n\n  let rawQty = leadTimeDemand + safetyStock - currentStock;\n\n  // fallback when forecast is zero\n  if (forecast30 === 0 && currentStock <= reorderPoint) {\n    rawQty = reorderPoint - currentStock;\n  }\n\n  let reorder_qty = Math.max(\n    supplierMinQty,\n    Math.ceil(rawQty / supplierMinQty) * supplierMinQty\n  );\n\n  if (rawQty <= 0) reorder_qty = 0;\n\n  const isCritical =\n    currentStock === 0 || d.reorder_urgency === \"critical\";\n\n  const needsReorder =\n    currentStock <= reorderPoint || isCritical;\n\n  return {\n    json: {\n      ...d,\n      daily_demand_forecast: Number(dailyDemand.toFixed(4)),\n      lead_time_demand: Number(leadTimeDemand.toFixed(2)),\n      safety_stock: Number(safetyStock.toFixed(2)),\n      optimal_reorder_qty: reorder_qty,\n      needs_reorder: needsReorder,\n      is_critical: isCritical,\n      reorder_trigger: needsReorder\n        ? (isCritical ? \"True\" : \"false\")\n        : \"NONE\"\n    }\n  };\n\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        -48
+      ],
+      "id": "029bafac-920c-4314-aa16-34c66451fc19",
+      "name": "Reorder Quantity Calculator"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Inventory Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Sales History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Supplier Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Inventory Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Supplier Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sales History": {
+      "main": [
+        []
+      ]
+    },
+    "Fetch Supplier Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Supplier Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Demand Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Demand Forecast",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Supplier Data": {
+      "main": [
+        [
+          {
+            "node": "Feature Engineering",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feature Engineering": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Demand Forecast": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Response Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Response Parser": {
+      "main": [
+        [
+          {
+            "node": "Reorder Quantity Calculator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Needs Reorder Check": {
+      "main": [
+        [
+          {
+            "node": "IF: Critical Stock Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Critical Stock Alert": {
+      "main": [
+        [
+          {
+            "node": "Purchase Order Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Purchase Order Generator": {
+      "main": [
+        [
+          {
+            "node": "Send Approval Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approval Notification": {
+      "main": [
+        [
+          {
+            "node": "Store Purchase Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Purchase Order": {
+      "main": [
+        [
+          {
+            "node": "Store Forecast Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Forecast Results": {
+      "main": [
+        []
+      ]
+    },
+    "Reorder Quantity Calculator": {
+      "main": [
+        [
+          {
+            "node": "IF: Needs Reorder Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a4379518-c59c-46e0-8b7f-6927aec5ba60",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "ny8kAQAcOz4IM7wz",
+  "tags": []
+}

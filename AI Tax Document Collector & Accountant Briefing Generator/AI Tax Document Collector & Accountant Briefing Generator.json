@@ -1,0 +1,1337 @@
+{
+  "name": "AI Tax Document Collector & Accountant Briefing Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -272,
+        -304
+      ],
+      "id": "434fe43f-ad9a-455b-a267-0e52628cc3a7",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        80,
+        -432
+      ],
+      "id": "4e288b19-ec38-49c0-9f50-7a11789338b6",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kI941t8lgdIBecGb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        432,
+        -336
+      ],
+      "id": "e6ae2834-096c-47bb-9a55-915d7f3b665f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bba96315-d24f-4b3b-a633-77e4d12b3bd6",
+              "leftValue": "={{ $json._empty }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        -336
+      ],
+      "id": "0dac3dc0-8e14-45b7-8503-7f870da200f1",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        -80
+      ],
+      "id": "e6fe33b5-c6fe-4a8d-8ab8-2c3b8e9f0450",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        224
+      ],
+      "id": "83786311-f2c2-49e6-82c5-bb3a930fa3c4",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+        "options": {
+          "maxTokens": 2000,
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        720,
+        272
+      ],
+      "id": "50afa5fc-3b70-4098-bd2d-66dd8b195498",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "returnAll": true,
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "1dyFx4IlKAUcdXngaKhL23lbuboaTOKNM",
+            "mode": "list",
+            "cachedResultName": "n8n",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1dyFx4IlKAUcdXngaKhL23lbuboaTOKNM"
+          },
+          "whatToSearch": "all"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        -432
+      ],
+      "id": "5b2e5a36-7c11-4fb4-95b0-8199e1807296",
+      "name": "GDrive List Files",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kI941t8lgdIBecGb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "q": "=has:attachment (subject:tax OR subject:invoice OR subject:receipt OR subject:statement)",
+          "readStatus": "both",
+          "receivedAfter": "={{ $now.minus({months: 6}).toISO() }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -80,
+        -256
+      ],
+      "id": "e61b675f-afb2-499a-874c-2088bcc177a7",
+      "name": "Gmail Fetch Emails",
+      "webhookId": "2d143658-b850-43f7-beac-fedade71ccbd",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const msg = item.json;\n  const binaries = item.binary || {};\n\n  const supportedTypes = [\n    'application/pdf',\n    'text/csv',\n    'image/jpeg',\n    'image/png',\n    'application/vnd.ms-excel',\n    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  ];\n\n  let idx = 0;\n\n  for (const key of Object.keys(binaries)) {\n    const file = binaries[key];\n\n    if (!file || !file.mimeType) continue;\n    if (!supportedTypes.includes(file.mimeType)) continue;\n\n    results.push({\n      json: {\n        id: `gmail_${msg.id || msg.threadId}_${idx}`,\n        name: file.fileName || `attachment_${idx}`,\n        mimeType: file.mimeType,\n        createdTime: msg.internalDate || new Date().toISOString(),\n        size: String(file.fileSize || 0),\n\n        // Email metadata (fixed field names)\n        emailId: msg.id || msg.threadId,\n        emailSubject: msg.Subject || msg.subject || \"\",\n        emailFrom: msg.From || msg.from || \"\",\n\n        source: 'gmail',\n        binaryPropertyName: key\n      },\n\n      // ⚠️ IMPORTANT: Only pass that specific binary\n      binary: {\n        [key]: file\n      }\n    });\n\n    idx++;\n  }\n}\n\nreturn results.length > 0\n  ? results\n  : [{ json: { _empty: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -256
+      ],
+      "id": "2d406b6f-1a37-4057-8817-817c6fe5fd93",
+      "name": "Normalize Gmail"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of items) {\n  if (!item.binary) continue;\n\n  const binaryKey = Object.keys(item.binary)[0];\n  const binaryData = item.binary[binaryKey];\n\n  // Convert base64 → buffer\n  const buffer = Buffer.from(binaryData.data, 'base64');\n\n  const fileName = binaryData.fileName || \"unknown\";\n  const mimeType = binaryData.mimeType || \"\";\n\n  let extractedText = \"\";\n\n  try {\n    // ---- CSV FILE ----\n    if (mimeType.includes('csv') || fileName.endsWith('.csv')) {\n      extractedText = buffer.toString('utf-8');\n\n      // Convert CSV → JSON\n      const rows = extractedText.split('\\n').map(r => r.split(','));\n      const headers = rows[0];\n\n      const jsonData = rows.slice(1).map(row => {\n        const obj = {};\n        headers.forEach((h, i) => obj[h.trim()] = row[i]?.trim());\n        return obj;\n      });\n\n      results.push({\n        json: {\n          fileName,\n          type: \"csv\",\n          data: jsonData\n        }\n      });\n    }\n\n    // ---- TEXT FILE ----\n    else if (mimeType.includes('text') || fileName.endsWith('.txt')) {\n      extractedText = buffer.toString('utf-8');\n\n      results.push({\n        json: {\n          fileName,\n          type: \"text\",\n          content: extractedText\n        }\n      });\n    }\n\n    // ---- PDF (basic extraction placeholder) ----\n    else if (mimeType.includes('pdf') || fileName.endsWith('.pdf')) {\n      // NOTE: n8n Code node cannot fully parse PDF text natively\n      extractedText = buffer.toString('utf-8').slice(0, 2000);\n\n      results.push({\n        json: {\n          fileName,\n          type: \"pdf\",\n          note: \"Basic extraction only (use external service for real parsing)\",\n          raw_preview: extractedText\n        }\n      });\n    }\n\n    // ---- UNKNOWN FILE ----\n    else {\n      results.push({\n        json: {\n          fileName,\n          type: \"unknown\",\n          message: \"Unsupported file type\"\n        }\n      });\n    }\n\n  } catch (error) {\n    results.push({\n      json: {\n        fileName,\n        error: error.message\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -432
+      ],
+      "id": "92738830-2758-4854-b035-e0c06f62e42c",
+      "name": "Normalize documents data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "00e0e19b-5194-4d7e-a28a-492b8862d2f0",
+              "name": "doc_id",
+              "value": "={{ $('Download file').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2b21a432-4226-4204-bff3-bcc5d8d3b0e6",
+              "name": "file_name",
+              "value": "={{ $('Download file').item.binary.data.fileName }}",
+              "type": "string"
+            },
+            {
+              "id": "41dbbdd6-36ce-4884-b191-615c4d6088b6",
+              "name": "file_extension",
+              "value": "={{ $('Download file').item.binary.data.fileExtension.split('.').pop().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "a651016a-6f93-4ccf-91f3-58adb45f8d21",
+              "name": "mime_type",
+              "value": "={{ $('Download file').item.binary.data.mimeType }}",
+              "type": "string"
+            },
+            {
+              "id": "49b6287d-598e-4a17-a6b1-689d1ba6e8c9",
+              "name": "upload_date",
+              "value": "={{ $json.createdTime ? $json.createdTime.substring(0, 10) : 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "d8e6642f-c865-48ea-9845-c4e6fe5a5df2",
+              "name": "source",
+              "value": "={{ $('Download file').item.binary.data.source ?? 'google_drive' }}",
+              "type": "string"
+            },
+            {
+              "id": "8d4e32aa-da63-4c2e-917c-3511d667bedf",
+              "name": "size_kb",
+              "value": "={{ Math.round(Number($json.size ?? 0) / 1024) }}",
+              "type": "number"
+            },
+            {
+              "id": "4d8124c9-5a00-45e7-8f1e-86b1fc26d7a4",
+              "name": "email_subject",
+              "value": "={{ $json.emailSubject ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "e811edfd-9970-4d6f-bb0c-cf9ca54fdcfd",
+              "name": "drive_link",
+              "value": "={{ $json.webViewLink ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a3760d73-f7b8-497e-a111-e992998e0b4c",
+              "name": "status",
+              "value": "pending",
+              "type": "string"
+            },
+            {
+              "id": "d304cff0-17f5-40fa-8eb4-122c753cc43f",
+              "name": "data",
+              "value": "={{ $json.data }}",
+              "type": "string"
+            },
+            {
+              "id": "ba31076b-36ab-44ae-ada8-7f3ec5a64aa6",
+              "name": "raw_preview",
+              "value": "={{ $json.raw_preview }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        -336
+      ],
+      "id": "09c64288-cffe-43d9-9873-a5a7576ca3f7",
+      "name": "Edit Fields: Metadata"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following document and extract structured financial data.\n\nFILE NAME: {{ $json.file_name }}\nMIME TYPE: {{ $json.mime_type }}\nSOURCE: {{ $json.source }}\n\nDOCUMENT CONTENT:\n{{ $json.raw_preview || $json.data }}\n\n\nINSTRUCTIONS:\n- Identify document type\n- Extract key financial details\n- If multiple transactions exist, set \"multiple_transactions\": true\n- If content is unclear, set \"is_incomplete\": true\n\nReturn ONLY JSON.",
+        "options": {
+          "systemMessage": "=You are an expert financial document classification and data extraction system.\n\nYour job is to:\n1. Classify the document into ONE category:\n   - bank_statement\n   - invoice\n   - receipt\n   - payroll\n   - tax_document\n   - unknown\n\n2. Extract structured financial information.\n\nSTRICT RULES:\n- Respond ONLY in valid JSON\n- NO markdown\n- NO explanations\n- NO extra text\n- If data is missing, return null\n- Do NOT hallucinate values\n- Keep numbers as numbers (no currency symbols)\n\nOUTPUT FORMAT:\n{\n  \"category\": \"\",\n  \"confidence\": 0-100,\n  \"document_type_reason\": \"\",\n  \"extracted_data\": {\n    \"amount\": number|null,\n    \"total_amount\": number|null,\n    \"date\": \"YYYY-MM-DD\"|null,\n    \"vendor\": string|null,\n    \"account_number\": string|null,\n    \"transaction_count\": number|null\n  },\n  \"flags\": {\n    \"is_blurry\": false,\n    \"is_incomplete\": false,\n    \"multiple_transactions\": false\n  }\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -160,
+        80
+      ],
+      "id": "c0a65ac3-46d4-4911-939e-76fe0e7f0c9d",
+      "name": "AI Categorization (OpenRouter)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const originalData = item.json;\n\n  const fallback = {\n    category: 'unknown',\n    sub_category: 'parse_error',\n    confidence: 0,\n    extracted_amount: null,\n    currency: null,\n    vendor: null,\n    doc_period: null,\n    notes: 'AI response could not be parsed'\n  };\n\n  let parsed = fallback;\n\n  try {\n    // ✅ NEW SOURCE (your input)\n    const rawContent = originalData.output;\n\n    if (!rawContent || rawContent.trim() === '') {\n      parsed = { ...fallback, notes: 'AI returned empty response' };\n    } else {\n      const cleaned = rawContent\n        .replace(/```json\\s*/gi, '')\n        .replace(/```\\s*/g, '')\n        .trim();\n\n      const jsonParsed = JSON.parse(cleaned);\n\n      parsed = {\n        category: jsonParsed.category || 'unknown',\n        confidence: typeof jsonParsed.confidence === 'number' ? jsonParsed.confidence : 0,\n\n        // Map extracted_data safely\n        extracted_amount: jsonParsed?.extracted_data?.amount ?? null,\n        total_amount: jsonParsed?.extracted_data?.total_amount ?? null,\n        vendor: jsonParsed?.extracted_data?.vendor ?? '',\n        doc_period: jsonParsed?.extracted_data?.date ?? null,\n\n        // Optional fields\n        sub_category: '',\n        currency: 'USD',\n\n        notes: jsonParsed.document_type_reason || ''\n      };\n    }\n  } catch (err) {\n    parsed = {\n      ...fallback,\n      notes: `Parse error: ${err.message.substring(0, 80)}`\n    };\n  }\n\n  // ✅ Push result per item\n  results.push({\n    json: {\n      // ORIGINAL METADATA (safe fallback if missing)\n      doc_id:            originalData.doc_id || null,\n      file_name:         originalData.file_name || null,\n      file_extension:    originalData.file_extension || null,\n      mime_type:         originalData.mime_type || null,\n      upload_date:       originalData.upload_date || null,\n      source:            originalData.source || null,\n      size_kb:           originalData.size_kb || null,\n      drive_link:        originalData.drive_link || null,\n      email_subject:     originalData.email_subject || null,\n\n      // ✅ AI RESULTS\n      category:          parsed.category,\n      sub_category:      parsed.sub_category,\n      confidence:        parsed.confidence,\n      extracted_amount:  parsed.extracted_amount,\n      total_amount:      parsed.total_amount || null,\n      currency:          parsed.currency,\n      vendor:            parsed.vendor,\n      doc_period:        parsed.doc_period,\n      notes:             parsed.notes,\n\n      // FLAGS (very useful)\n      is_incomplete:     JSON.parse(originalData.output || '{}')?.flags?.is_incomplete ?? false,\n      multiple_txn:      JSON.parse(originalData.output || '{}')?.flags?.multiple_transactions ?? false,\n\n      // STATUS\n      status:            'categorized',\n      missing_flag:      false,\n      processed_at:      new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        80
+      ],
+      "id": "b3e32afc-6a33-49a3-81c3-c72fda225bf8",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw",
+          "mode": "list",
+          "cachedResultName": "AI Tax Document Collector & Accountant Briefing Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "doc_id": "={{ $('Loop Over Items').item.json.doc_id }}",
+            "document_name": "={{ $('Loop Over Items').item.json.file_name }}",
+            "file_type": "={{ $('Loop Over Items').item.json.mime_type }}",
+            "source": "={{ $('Loop Over Items').item.json.source }}",
+            "upload_date": "={{ $('Loop Over Items').item.json.upload_date }}",
+            "category": "={{ $json.category }}",
+            "sub_category": "={{ $json.sub_category }}",
+            "status": "={{ $json.status }}",
+            "missing_flag": "={{ $json.missing_flag }}",
+            "extracted_amount": "={{ $json.extracted_amount }}",
+            "currency": "={{ $json.currency }}",
+            "vendor": "={{ $json.vendor }}",
+            "doc_period": "={{ $json.doc_period }}",
+            "confidence": "={{ $json.confidence }}",
+            "notes": "={{ $json.notes }}",
+            "drive_link": "={{ $json.drive_link }}",
+            "last_updated": "={{$now.format('yyyy-MM-dd')}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "doc_id",
+              "displayName": "doc_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "document_name",
+              "displayName": "document_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "file_type",
+              "displayName": "file_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "upload_date",
+              "displayName": "upload_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sub_category",
+              "displayName": "sub_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "missing_flag",
+              "displayName": "missing_flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "extracted_amount",
+              "displayName": "extracted_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "vendor",
+              "displayName": "vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "doc_period",
+              "displayName": "doc_period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "drive_link",
+              "displayName": "drive_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_updated",
+              "displayName": "last_updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        336,
+        80
+      ],
+      "id": "36c76b6e-38f1-478e-970d-cd514b803aed",
+      "name": "Google Sheets: Upsert Document Row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "all_documents",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -96
+      ],
+      "id": "62979869-9e2b-430d-a0df-579f5062bd6e",
+      "name": "Aggregate All Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const docs = $input.first().json.all_documents || [];\n\nconst REQUIRED = [\n  { key: 'bank_statement', label: 'Bank Statements (12 months)', min: 12 },\n  { key: 'payroll',        label: 'Payroll / Salary Reports',    min: 4  },\n  { key: 'invoice',        label: 'Vendor Invoices',             min: 1  },\n  { key: 'receipt',        label: 'Expense Receipts',            min: 1  },\n  { key: 'tax_document',   label: 'Tax Forms (W-2, 1099, GST)',  min: 1  }\n];\n\n// Count by category\nconst counts = {};\ndocs.forEach(d => {\n  const c = d.category || 'unknown';\n  counts[c] = (counts[c] || 0) + 1;\n});\n\n// Build checklist\nconst checklist = REQUIRED.map(r => {\n  const found = counts[r.key] || 0;\n  return {\n    key:           r.key,\n    label:         r.label,\n    required:      r.min,\n    found:         found,\n    complete:      found >= r.min,\n    missing_count: Math.max(0, r.min - found)\n  };\n});\n\nconst missing  = checklist.filter(c => !c.complete);\nconst complete = checklist.filter(c =>  c.complete);\n\n// Financial totals (only docs with amounts)\nconst totalExpenses = docs\n  .filter(d => ['receipt','invoice'].includes(d.category) && d.extracted_amount > 0)\n  .reduce((sum, d) => sum + Number(d.extracted_amount), 0);\n\nconst totalIncome = docs\n  .filter(d => d.category === 'payroll' && d.extracted_amount > 0)\n  .reduce((sum, d) => sum + Number(d.extracted_amount), 0);\n\n// Build vendor summary  \nconst vendors = {};\ndocs.forEach(d => {\n  if (d.vendor) vendors[d.vendor] = (vendors[d.vendor] || 0) + Number(d.extracted_amount || 0);\n});\n\n// Flag anomalies\nconst anomalies = docs.filter(d => Number(d.extracted_amount) > 10000).map(d => \n  `${d.vendor || d.file_name}: $${d.extracted_amount} (${d.category})`\n);\n\nreturn [{\n  json: {\n    all_documents:    docs,\n    checklist:        checklist,\n    missing_items:    missing,\n    complete_items:   complete,\n    has_missing:      missing.length > 0,\n    total_docs:       docs.length,\n    total_expenses:   totalExpenses.toFixed(2),\n    total_income:     totalIncome.toFixed(2),\n    net_position:     (totalIncome - totalExpenses).toFixed(2),\n    category_counts:  counts,\n    vendor_summary:   vendors,\n    anomalies:        anomalies,\n    run_date:         new Date().toISOString().split('T')[0]\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -96
+      ],
+      "id": "41954737-c8f7-4d1e-8e96-966fa3286b78",
+      "name": "Checklist Engine (Code Node)"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw",
+          "mode": "list",
+          "cachedResultName": "AI Tax Document Collector & Accountant Briefing Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 666909649,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit#gid=666909649"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $json.run_date }}",
+            "key": "={{ $json.key }}",
+            "label": "={{ $json.label }}",
+            "required": "={{ $json.required }}",
+            "found": "={{ $json.found }}",
+            "complete": "={{ $json.complete }}",
+            "missing_count": "={{ $json.missing_count }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "label",
+              "displayName": "label",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "required",
+              "displayName": "required",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "found",
+              "displayName": "found",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "complete",
+              "displayName": "complete",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "missing_count",
+              "displayName": "missing_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        656,
+        -96
+      ],
+      "id": "281969ec-4007-4390-a5d7-67c302137721",
+      "name": "Google Sheets: Update Checklist Tab",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst runDate = data.run_date;\n\nreturn data.checklist.map(row => ({\n  json: {\n    run_date:      runDate,\n    key:           row.key,\n    label:         row.label,\n    required:      row.required,\n    found:         row.found,\n    complete:      row.complete ? 'YES' : 'NO',\n    missing_count: row.missing_count\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "4dd7b250-9299-4c0f-a4a9-ca907ae32619",
+      "name": "Structure data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b58d1593-3285-40b2-a811-72655bd3a68f",
+              "leftValue": "={{ $('Checklist Engine (Code Node)').item.json.all_documents[1].missing_flag }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        -96
+      ],
+      "id": "255b6c34-7038-4f78-9781-cd6592c233d5",
+      "name": "IF: Missing Documents?"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $env.CLIENT_EMAIL }}",
+        "subject": "=⚠️ Missing Tax Documents – Action Required ({{ $now.format('MMMM yyyy') }})",
+        "message": "=<h2 style=\"color:#333\">Tax Document Collection — Missing Items</h2>\n<p>Hi,</p>\n<p>We reviewed your uploaded tax documents for <strong>{{ $now.format('MMMM yyyy') }}</strong> and the following items are still missing:</p>\n<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse;width:100%\">\n  <tr style=\"background:#f5f5f5\">\n    <th>Document Type</th><th>Required</th><th>Found</th><th>Still Needed</th>\n  </tr>\n  {{ $json.missing_items.map(i => `<tr><td>${i.label}</td><td>${i.required}</td><td>${i.found}</td><td><strong>${i.missing_count}</strong></td></tr>`).join('') }}\n</table>\n<br>\n<p>Please upload the missing files to your shared Google Drive folder or reply with them as attachments.</p>\n<p>Documents collected so far: <strong>{{ $json.total_docs }}</strong></p>\n<p>Thank you,<br><em>Tax Prep Automation</em></p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1168,
+        -256
+      ],
+      "id": "fe123b3f-0656-4cfe-bee8-7277522eafdf",
+      "name": "Gmail: Send Missing Document Reminder",
+      "webhookId": "e9130b74-93a8-46aa-a71c-feef8411f5dc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=={{\n`Generate a tax briefing document based on the following processed financial data.\n\nDATA:\n${JSON.stringify($json, null, 2)}\n\nINSTRUCTIONS:\n- Aggregate totals where possible\n- Identify missing categories (bank statements, payroll, invoices, etc.)\n- Highlight low confidence or incomplete data\n- Provide actionable recommendations\n\nGenerate the final accountant-ready briefing.`\n}}",
+        "options": {
+          "systemMessage": "=You are a senior certified accountant preparing a professional tax briefing document for a client.\n\nYour job is to:\n- Analyze structured financial data\n- Summarize key financial insights\n- Highlight missing or incomplete documents\n- Identify anomalies or risks\n- Provide clear next steps for the accountant\n\nSTRICT RULES:\n- Use formal, professional language\n- Structure output with numbered sections\n- Keep it concise but informative\n- Do NOT include JSON\n- Do NOT include explanations outside the document\n\nOUTPUT STRUCTURE:\n\n1. Executive Summary\n2. Financial Overview\n3. Document Summary\n4. Missing or Incomplete Documents\n5. Key Observations / Anomalies\n6. Recommendations / Next Steps"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        720,
+        128
+      ],
+      "id": "56451e3d-b602-4673-a5d7-c67f3d9d699c",
+      "name": "AI Briefing Generation (OpenRouter)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const text = item.json.briefing_text || '';\n\n  // Skip empty safely\n  if (!text || text.trim() === '') {\n    results.push({\n      json: {\n        ...item.json,\n        error: 'Empty briefing text'\n      }\n    });\n    continue;\n  }\n\n  // Encode text → base64\n  const encoded = Buffer.from(text, 'utf8').toString('base64');\n\n  results.push({\n    json: item.json,\n\n    binary: {\n      briefing_binary: {\n        data: encoded,\n        mimeType: 'text/plain',\n        fileName: `${item.json.doc_title || 'briefing'}.txt`,\n        fileExtension: 'txt'\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        128
+      ],
+      "id": "1aeaa3c3-050b-49e3-9c16-f40095bc2b3d",
+      "name": "Convert to Binary"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "{{ $json.doc_title }} – Ready for Review",
+        "message": "=<h2>Accountant Briefing — Ready for Review</h2>\n<p>The tax document collection and analysis for <strong>{{ $now.format('MMMM yyyy') }}</strong> is complete.</p>\n<hr>\n<p><strong>Summary:</strong></p>\n<ul>\n  <li>Missing documents: <strong>{{ $json.missing_count }}</strong></li>\n</ul>\n<hr>\n<h3>Briefing Preview</h3>\n<pre style=\"background:#f9f9f9;padding:16px;border-radius:4px;font-size:13px\">{{ $json.briefing_generated.substring(0, 1200) }}...</pre>\n<p><em>Full briefing document saved to Google Drive: {{ $json.doc_title }}.txt</em></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1584,
+        -64
+      ],
+      "id": "9086825e-6d8f-4bcf-adff-3518b8374b35",
+      "name": "Gmail: Send Final Report",
+      "webhookId": "93d858e9-1160-4955-99b8-74533f9a4cd8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw",
+          "mode": "list",
+          "cachedResultName": "AI Tax Document Collector & Accountant Briefing Generator",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1548642444,
+          "mode": "list",
+          "cachedResultName": "Log Run",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1OaVVOh-KFPUjvRiYyucY2dqYoaTCD-TVTKpiSNuL7sw/edit#gid=1548642444"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $('Code: Build Briefing Prompt').item.json.run_date }}",
+            "missing_count": "={{ $('Code: Build Briefing Prompt').item.json.missing_count }}",
+            "briefing_generated": "={{ $('Code: Extract Briefing Text').item.json.briefing_text }}",
+            "doc_title": "={{ $('Code: Extract Briefing Text').item.json.doc_title }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_docs",
+              "displayName": "total_docs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "total_income",
+              "displayName": "total_income",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "total_expenses",
+              "displayName": "total_expenses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "missing_count",
+              "displayName": "missing_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "briefing_generated",
+              "displayName": "briefing_generated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "doc_title",
+              "displayName": "doc_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1376,
+        -64
+      ],
+      "id": "8b27a029-2f47-4306-a773-0e58d5c0abbc",
+      "name": "Log Run",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "briefing_binary",
+        "name": "={{ $json.doc_title }}.txt",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1dyFx4IlKAUcdXngaKhL23lbuboaTOKNM",
+          "mode": "list",
+          "cachedResultName": "n8n",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1dyFx4IlKAUcdXngaKhL23lbuboaTOKNM"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1168,
+        -64
+      ],
+      "id": "a676adee-8ee5-4cb0-a05c-d4a7fd4a7516",
+      "name": "Google Drive: Save Briefing as Text File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "kI941t8lgdIBecGb",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n\n  // ✅ FIXED: use output instead of OpenAI format\n  const content = data.output || '';\n\n  const title = `Tax Briefing – ${new Date().toLocaleDateString('en-US', {\n    month: 'long',\n    year: 'numeric'\n  })}`;\n\n  // ---- HANDLE EMPTY ----\n  if (!content || content.trim() === '') {\n    results.push({\n      json: {\n        briefing_text: 'ERROR: AI briefing generation failed. Please review manually.',\n        doc_title: title,\n        generation_error: true\n      }\n    });\n    continue;\n  }\n\n  // ---- SUCCESS CASE ----\n  results.push({\n    json: {\n      briefing_text: content.trim(),\n      doc_title: title,\n      generation_error: false,\n      char_count: content.length,\n      generated_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        128
+      ],
+      "id": "1680f8f7-a8cb-4578-af6e-ac885812e5ce",
+      "name": "Code: Extract Briefing Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const d = item.json;\n\n  // ✅ SAFE DEFAULTS\n  const documents = d.all_documents || [];\n  const missingItems = d.missing_items || [];\n  const vendorSummary = d.vendor_summary || {};\n  const anomalies = d.anomalies || [];\n  const completeItems = d.complete_items || [];\n\n  // ---- DOCUMENT LIST ----\n  const docList = documents.slice(0, 25).map(doc => \n    `- ${doc.file_name} | ${doc.category} | vendor: ${doc.vendor || 'N/A'} | amount: ${doc.extracted_amount ? '$'+doc.extracted_amount : 'unknown'} | period: ${doc.doc_period || 'N/A'}`\n  ).join('\\n');\n\n  // ---- MISSING LIST ----\n  const missingList = missingItems.length > 0\n    ? missingItems.map(i => `- ${i.label}: need ${i.missing_count} more (found ${i.found}/${i.required})`).join('\\n')\n    : '- None. All required documents received.';\n\n  // ---- VENDOR LIST ----\n  const vendorList = Object.entries(vendorSummary)\n    .sort((a,b) => (b[1] || 0) - (a[1] || 0))\n    .slice(0, 10)\n    .map(([v, amt]) => `- ${v}: $${Number(amt || 0).toFixed(2)}`)\n    .join('\\n');\n\n  // ---- ANOMALIES ----\n  const anomalyList = anomalies.length > 0\n    ? anomalies.join('\\n')\n    : 'None detected.';\n\n  // ---- PROMPT ----\n  const prompt = `Generate a formal accountant briefing document for tax preparation.\n\n=== COLLECTION SUMMARY ===\nRun Date: ${d.run_date || 'N/A'}\nTotal Documents Collected: ${d.total_docs || 0}\nDocuments by Category: ${JSON.stringify(d.category_counts || {})}\n\n=== FINANCIAL OVERVIEW ===\nEstimated Total Income (payroll): $${d.total_income || 0}\nEstimated Total Expenses (receipts + invoices): $${d.total_expenses || 0}\nNet Position: $${d.net_position || 0}\n\n=== TOP VENDORS BY SPEND ===\n${vendorList || 'No vendor data available.'}\n\n=== DOCUMENT CHECKLIST ===\nComplete items: ${completeItems.map(i => i.label).join(', ') || 'None'}\nMissing items:\n${missingList}\n\n=== ANOMALIES (amounts over $10,000) ===\n${anomalyList}\n\n=== DOCUMENT LIST ===\n${docList || 'No documents found.'}\n\n=== INSTRUCTIONS ===\nWrite a professional accountant briefing with EXACTLY these sections:\n\n1. EXECUTIVE SUMMARY\n2. INCOME ANALYSIS\n3. EXPENSE ANALYSIS\n4. DOCUMENT STATUS\n5. FLAGS AND ANOMALIES\n6. RECOMMENDED NEXT STEPS\n\nUse formal language. Include specific dollar figures. Be concise but thorough.`;\n\n  // ✅ Push per item\n  results.push({\n    json: {\n      ...d,\n      briefing_prompt: prompt\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        128
+      ],
+      "id": "e1896f68-1c4e-45b0-bda0-067e8b3a7247",
+      "name": "Code: Build Briefing Prompt"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "GDrive List Files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gmail Fetch Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Normalize documents data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields: Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Categorization (OpenRouter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Categorization (OpenRouter)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Briefing Generation (OpenRouter)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GDrive List Files": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Fetch Emails": {
+      "main": [
+        [
+          {
+            "node": "Normalize Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Gmail": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Normalize documents data": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields: Metadata": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Categorization (OpenRouter)": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Upsert Document Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Upsert Document Row": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results": {
+      "main": [
+        [
+          {
+            "node": "Checklist Engine (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checklist Engine (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "Structure data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets: Update Checklist Tab": {
+      "main": [
+        [
+          {
+            "node": "IF: Missing Documents?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Update Checklist Tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Missing Documents?": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Send Missing Document Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Build Briefing Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Briefing Generation (OpenRouter)": {
+      "main": [
+        [
+          {
+            "node": "Code: Extract Briefing Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to Binary": {
+      "main": [
+        [
+          {
+            "node": "Google Drive: Save Briefing as Text File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Run": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Send Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive: Save Briefing as Text File": {
+      "main": [
+        [
+          {
+            "node": "Log Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Extract Briefing Text": {
+      "main": [
+        [
+          {
+            "node": "Convert to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Build Briefing Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Briefing Generation (OpenRouter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cea70f1a-7116-41e1-b698-a113f0ab8dde",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "IpWjx8vdr81qW6uq",
+  "tags": []
+}

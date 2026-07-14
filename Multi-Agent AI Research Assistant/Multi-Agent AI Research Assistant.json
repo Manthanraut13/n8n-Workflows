@@ -1,0 +1,481 @@
+{
+  "name": "Multi-Agent AI Research Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        432,
+        144
+      ],
+      "id": "91785153-0e3b-4987-aece-390b4048134c",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        448
+      ],
+      "id": "354c779a-0be2-46c2-8e02-52e0f5a25443",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.5-air:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        320,
+        448
+      ],
+      "id": "7b0ce31b-d215-4387-8eb4-d6785cfe63c4",
+      "name": "OpenRouter Chat Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-assistant",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f0e485de-5241-49b7-9966-ea14365b132b",
+      "name": "Webhook Trigger",
+      "webhookId": "6afac3fd-a004-4507-b52d-e84d96357cec"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Support both direct JSON and webhook body JSON\nconst payload = input.body ?? input;\n\n// Validate required field\nif (!payload.research_topic || payload.research_topic.trim() === \"\") {\n  throw new Error(\"research_topic is required\");\n}\n\n// Normalize depth_level\nconst depth = payload.depth_level || \"quick\";\nconst sources_count = depth === \"deep\" ? 5 : 3;\n\nreturn {\n  json: {\n    validated_input: {\n      research_topic: payload.research_topic,\n      industry: payload.industry || \"general\",\n      audience: payload.audience || \"decision-makers\",\n      depth_level: depth,\n      sources_count,\n      timestamp: new Date().toISOString(),\n      run_id: Math.random().toString(36).slice(2, 11)\n    },\n    memory_context: {\n      should_load_history: true,\n      comparison_depth: depth === \"deep\" ? \"full\" : \"summary\"\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ae07aff9-da3e-4397-8a73-4be604570cf2",
+      "name": "Input Validator & Memory Loader"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Research topic: {{ $json.validated_input.research_topic }}\nIndustry: {{ $json.validated_input.industry }}\nAudience: {{ $json.validated_input.audience }}\nDepth level: {{ $json.validated_input.depth_level }}\n\nYou are NOT given raw research sources.\n\nExtract only broadly accepted factual patterns, themes, and assumptions commonly discussed for this topic in public knowledge.\n\nIf certainty is low, reflect that in evidence strength.",
+        "options": {
+          "systemMessage": "=You are a Research Extraction Agent.\n\nIMPORTANT CONSTRAINTS:\n- You are NOT provided with raw source documents.\n- You MUST NOT invent sources, statistics, or claims.\n- You may only extract widely accepted, high-level factual patterns that are commonly referenced across public knowledge.\n- If evidence is weak or inferred, mark evidence_strength as \"low\".\n- If no contradictions or numerical data are confidently known, return empty arrays.\n- If facts are speculative or framework-based, treat them as assumptions, not facts.\n\nYour task is STRICTLY extraction, not interpretation, strategy, or advice.\n\nBased ONLY on general, well-known industry knowledge about the topic, identify:\n1. Factual claims that are broadly accepted (not opinions)\n2. Recurring themes that appear across multiple public discussions\n3. Commonly cited numerical benchmarks (only if widely known)\n4. Known contradictions in public discourse (if any)\n5. Implicit assumptions commonly present in discussions of this topic\n\nOutput ONLY valid JSON.\nDo NOT explain.\nDo NOT narrate.\nDo NOT add recommendations.\n\nIf information confidence is limited due to missing sources, reflect this accurately in evidence strength and analysis_confidence.\n\nYour output MUST match this schema EXACTLY:\n{\n  \"facts\": [\n    {\n      \"claim\": \"string\",\n      \"evidence_strength\": \"high|medium|low\",\n      \"sources_count\": number,\n      \"source_examples\": [\"string\"]\n    }\n  ],\n  \"recurring_themes\": [\"string\"],\n  \"numerical_data\": [\n    {\n      \"metric\": \"string\",\n      \"value\": \"string\",\n      \"source\": \"string\"\n    }\n  ],\n  \"contradictions_found\": [\n    {\n      \"claim_a\": \"string\",\n      \"claim_b\": \"string\",\n      \"source_a\": \"string\",\n      \"source_b\": \"string\"\n    }\n  ],\n  \"implicit_assumptions\": [\"string\"],\n  \"analysis_confidence\": number\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        432,
+        0
+      ],
+      "id": "4d9fc4c9-56d0-4fab-8f6e-ce6507c6bd1b",
+      "name": "Research Agent (AI Node)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw LLM output\nconst raw = $input.first().json.output;\n\nif (!raw || typeof raw !== 'string') {\n  throw new Error('No valid output field found');\n}\n\n// Remove markdown code fences (```json ... ```)\nconst cleaned = raw\n  .replace(/```json\\s*/i, '')\n  .replace(/```/g, '')\n  .trim();\n\n// Parse JSON safely\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('Failed to parse JSON output: ' + e.message);\n}\n\n// Return parsed object\nreturn [\n  {\n    json: {\n      facts: parsed.facts || [],\n      recurring_themes: parsed.recurring_themes || [],\n      numerical_data: parsed.numerical_data || [],\n      contradictions_found: parsed.contradictions_found || [],\n      implicit_assumptions: parsed.implicit_assumptions || [],\n      analysis_confidence: parsed.analysis_confidence ?? null,\n      parsed_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        0
+      ],
+      "id": "c0257955-0ad9-414c-b5b8-2952cd184abc",
+      "name": "Parse Output"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Topic: {{ $('Input Validator & Memory Loader').item.json.validated_input.research_topic }}\n\nResearch findings from Agent 1:{{ $('Research Agent (AI Node)').item.json.output }}\n\n\nChallenge these findings. Do not accept them at face value. \nWhat is weak? What is missing? What could be wrong?",
+        "options": {
+          "systemMessage": "=You are a Skeptic Verifier Agent. Your job is to challenge, not confirm.\n\nGiven research findings, your task is to:\n1. Identify claims with weak evidence (only 1 source, low evidence_strength)\n2. Flag logical leaps or unsupported inferences\n3. Identify missing context or alternative explanations\n4. Spot circular reasoning or self-citation\n5. Point out assumptions that may not hold in all contexts\n6. Suggest counter-arguments or competing narratives\n\nBe brutal. Assume the Research Agent missed something.\n\nOutput ONLY valid JSON:\n{\n  \"weak_claims\": [\n    {\n      \"claim\": \"string\",\n      \"reason\": \"string\",\n      \"suggested_evidence\": \"string\"\n    }\n  ],\n  \"logical_gaps\": [\n    {\n      \"gap\": \"string\",\n      \"impact\": \"high|medium|low\"\n    }\n  ],\n  \"missing_context\": [\"context1\", \"context2\"],\n  \"alternative_explanations\": [\n    {\n      \"claim\": \"string\",\n      \"alternative\": \"string\",\n      \"plausibility\": \"high|medium|low\"\n    }\n  ],\n  \"methodological_concerns\": [\"concern1\", \"concern2\"],\n  \"skepticism_confidence\": 0-100\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -16,
+        288
+      ],
+      "id": "4697eb49-a73a-4d16-99f9-d9e4719453c9",
+      "name": "Skeptic Agent (AI Node)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Topic: {{ $('Input Validator & Memory Loader').item.json.validated_input.research_topic }}\nAudience: {{ $('Input Validator & Memory Loader').item.json.validated_input.audience }}\nIndustry: {{ $('Input Validator & Memory Loader').item.json.validated_input.industry }}\n\nResearch findings:{{ $('Research Agent (AI Node)').item.json.output }}\n\nSkeptic critiques:{{ $json.output }}\n\n\nReconcile these. What is truly verified? What is conflicted? What matters to the {{ $('Input Validator & Memory Loader').item.json.validated_input.audience }}?\nDo not summarize. Synthesize. Recommend actions.",
+        "options": {
+          "systemMessage": "=You are a Synthesizer & Strategist Agent. Your job is not to summarize—it is to reconcile and act.\n\nGiven:\n- Research findings (from Agent 1)\n- Skeptical critiques (from Agent 2)\n\nYour task:\n1. Accept what is verified (high evidence + passes skepticism)\n2. Flag what is uncertain (conflicting findings OR skeptic raised valid concern)\n3. Identify what is unresolved (open questions the team needs to explore)\n4. Translate findings into strategic implications (why this matters to the audience)\n5. Recommend concrete next actions (not research, not analysis—actions)\n\nYour output MUST be decision-ready. Assume the reader is busy.\n\nOutput ONLY valid JSON:\n{\n  \"executive_summary\": \"string (1-2 sentences, the core insight)\",\n  \"key_insights\": [\n    {\n      \"insight\": \"string\",\n      \"confidence\": 0-100,\n      \"based_on\": [\"finding1\", \"finding2\"],\n      \"implications\": \"string\"\n    }\n  ],\n  \"conflicting_views\": [\n    {\n      \"view_a\": \"string\",\n      \"view_b\": \"string\",\n      \"resolution\": \"string OR 'unresolved'\",\n      \"recommendation\": \"string\"\n    }\n  ],\n  \"verified_assumptions\": [\n    {\n      \"assumption\": \"string\",\n      \"supporting_evidence\": [\"source1\", \"source2\"]\n    }\n  ],\n  \"open_questions\": [\n    {\n      \"question\": \"string\",\n      \"why_it_matters\": \"string\",\n      \"data_needed\": \"string\"\n    }\n  ],\n  \"recommended_next_actions\": [\n    {\n      \"action\": \"string\",\n      \"rationale\": \"string\",\n      \"owner\": \"string (optional)\",\n      \"timeline\": \"string (optional)\"\n    }\n  ],\n  \"synthesis_confidence\": 0-100,\n  \"confidence_rationale\": \"string\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        320,
+        288
+      ],
+      "id": "e7db477f-a22a-431f-8d20-ba4406726e0e",
+      "name": "Synthesizer Agent (AI Node)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const synthesis = $input.first().json;\n\n// Optional: fallback values\nconst topic = synthesis.research_topic || 'Research Topic';\nconst timestamp = new Date().toLocaleString();\n\nconst md = `# Research Brief: ${topic}\n\n**Generated:** ${timestamp}  \n**Confidence Level:** ${synthesis.synthesis_confidence ?? 'N/A'}%\n\n---\n\n## ✅ What We Know\n\n${synthesis.executive_summary || 'No executive summary provided.'}\n\n### Key Insights\n${(synthesis.key_insights || []).map((k, i) => \n  `${i + 1}. **${k.insight}** (${k.confidence}% confidence)\n   - Why it matters: ${k.implications}`\n).join('\\n\\n') || 'No key insights available.'}\n\n---\n\n## ⚠️ What We're Unsure About\n\n### Conflicting Views\n${(synthesis.conflicting_views && synthesis.conflicting_views.length > 0)\n  ? synthesis.conflicting_views.map((cv, i) =>\n`**Conflict ${i + 1}:**\n- Perspective A: ${cv.view_a}\n- Perspective B: ${cv.view_b}\n- Resolution: ${cv.resolution}`\n).join('\\n\\n')\n  : 'No major conflicts detected.'}\n\n### Open Questions\n${(synthesis.open_questions || []).map((q, i) =>\n`${i + 1}. **${q.question}**\n- Why it matters: ${q.why_it_matters}\n- Data needed: ${q.data_needed}`\n).join('\\n\\n') || 'No open questions identified.'}\n\n---\n\n## ➡️ What to Do Next\n\n${(synthesis.recommended_next_actions || []).map((a, i) =>\n`${i + 1}. **${a.action}**\n- Rationale: ${a.rationale}\n${a.timeline ? `- Timeline: ${a.timeline}` : ''}`\n).join('\\n\\n') || 'No next actions defined.'}\n\n---\n\n## 🔍 Methodology\n\n- **Analysis confidence:** ${synthesis.synthesis_confidence ?? 'N/A'}%\n- **Reasoning:** ${synthesis.confidence_rationale || 'No rationale provided.'}\n\n---\n\n**Next research run recommended in:** 7–14 days\n`;\n\nreturn [\n  {\n    json: {\n      markdown_brief: md,\n      generated_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        288
+      ],
+      "id": "684fa76a-5eb0-4bc4-96f0-229e08992b02",
+      "name": "Markdown Formatter (Function)"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "={{ $('Input Validator & Memory Loader').item.json.validated_input.research_topic }}",
+        "message": "={{ $json.markdown_brief }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1088,
+        144
+      ],
+      "id": "ea28f5a1-a1fe-47e4-b01c-481792dc0d17",
+      "name": "Email Sender",
+      "webhookId": "d9f24dc3-1d49-498d-bdd1-a4cf98b5b288",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "14Ur3NO24LO5SeYD9JwO8_0s0WZQhYspqCHHwcLOHcNY",
+          "mode": "list",
+          "cachedResultName": "Multi-Agent AI Research Assistant",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14Ur3NO24LO5SeYD9JwO8_0s0WZQhYspqCHHwcLOHcNY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "research_memory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14Ur3NO24LO5SeYD9JwO8_0s0WZQhYspqCHHwcLOHcNY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key_insights": "={{ $('Comparison Engine (Function)').item.json.key_insights[0].insight }}\n{{ $('Comparison Engine (Function)').item.json.key_insights[1].insight }}\n{{ $('Comparison Engine (Function)').item.json.key_insights[2].insight }}\n{{ $('Comparison Engine (Function)').item.json.key_insights[3].insight }}\n",
+            "confidence_score": "={{ $('Comparison Engine (Function)').item.json.synthesis_confidence }}",
+            "contradictions_flagged": "={{ $('Parse Output').item.json.contradictions_found[0].claim_a }}\n{{ $('Parse Output').item.json.contradictions_found[0].claim_b }}\n\n{{ $('Parse Output').item.json.contradictions_found[1].claim_a }}\n{{ $('Parse Output').item.json.contradictions_found[1].claim_b }}",
+            "date": "={{ $json.generated_at }}",
+            "topic": "={{ $('Input Validator & Memory Loader').item.json.validated_input.research_topic }}",
+            "findings_hash": "={{ $('Comparison Engine (Function)').item.json.executive_summary }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "topic",
+              "displayName": "topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "findings_hash",
+              "displayName": "findings_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key_insights",
+              "displayName": "key_insights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contradictions_flagged",
+              "displayName": "contradictions_flagged",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence_score",
+              "displayName": "confidence_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1104,
+        352
+      ],
+      "id": "4438373a-3c73-4e14-b268-842617291132",
+      "name": "Memory Archiver (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw LLM output\nconst raw = $input.first().json.output;\n\nif (!raw || typeof raw !== 'string') {\n  throw new Error('No valid output field found');\n}\n\n// Strip markdown code fences\nconst cleaned = raw\n  .replace(/```json\\s*/i, '')\n  .replace(/```/g, '')\n  .trim();\n\n// Parse JSON safely\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error('Failed to parse JSON output: ' + e.message);\n}\n\n// Return normalized structured output\nreturn [\n  {\n    json: {\n      executive_summary: parsed.executive_summary || '',\n      key_insights: parsed.key_insights || [],\n      conflicting_views: parsed.conflicting_views || [],\n      verified_assumptions: parsed.verified_assumptions || [],\n      open_questions: parsed.open_questions || [],\n      recommended_next_actions: parsed.recommended_next_actions || [],\n      synthesis_confidence: parsed.synthesis_confidence ?? null,\n      confidence_rationale: parsed.confidence_rationale || '',\n      parsed_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        288
+      ],
+      "id": "a5d93702-ee54-406d-bcaf-9d97c56e9c6e",
+      "name": "Comparison Engine (Function)"
+    }
+  ],
+  "pinData": {
+    "Webhook Trigger": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "PostmanRuntime/7.51.1",
+            "accept": "*/*",
+            "postman-token": "730be729-792b-44f6-a094-810f39bb24db",
+            "host": "localhost:5678",
+            "accept-encoding": "gzip, deflate, br",
+            "connection": "keep-alive",
+            "content-length": "193"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "research_topic": "Lead generation strategies for AI freelancers",
+            "industry": "AI services and consulting",
+            "audience": "AI freelancers and solo consultants",
+            "depth_level": "deep"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/research-assistant",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent (AI Node)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Skeptic Agent (AI Node)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Synthesizer Agent (AI Node)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Input Validator & Memory Loader",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Validator & Memory Loader": {
+      "main": [
+        [
+          {
+            "node": "Research Agent (AI Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent (AI Node)": {
+      "main": [
+        [
+          {
+            "node": "Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Output": {
+      "main": [
+        [
+          {
+            "node": "Skeptic Agent (AI Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skeptic Agent (AI Node)": {
+      "main": [
+        [
+          {
+            "node": "Synthesizer Agent (AI Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesizer Agent (AI Node)": {
+      "main": [
+        [
+          {
+            "node": "Comparison Engine (Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown Formatter (Function)": {
+      "main": [
+        [
+          {
+            "node": "Email Sender",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Memory Archiver (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparison Engine (Function)": {
+      "main": [
+        [
+          {
+            "node": "Markdown Formatter (Function)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bfedb0f7-8082-451a-949b-27590880b16d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "5PTbSsmmsHuIl7vv",
+  "tags": []
+}

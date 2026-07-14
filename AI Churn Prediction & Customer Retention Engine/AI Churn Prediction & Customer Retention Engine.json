@@ -1,0 +1,841 @@
+{
+  "name": "AI Churn Prediction & Customer Retention Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        -544
+      ],
+      "id": "080d7635-ff8f-4bdb-be64-2b0f787e3ed0",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8",
+          "mode": "list",
+          "cachedResultName": "AI Churn Prediction & Customer Retention Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Customers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        784,
+        -656
+      ],
+      "id": "a2b8b8ba-ddb2-44d4-9edd-173b8edc182c",
+      "name": "Fetch Customers (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8",
+          "mode": "list",
+          "cachedResultName": "AI Churn Prediction & Customer Retention Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 400627009,
+          "mode": "list",
+          "cachedResultName": "Support_Tickets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit#gid=400627009"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        -480
+      ],
+      "id": "07aafc71-0298-4821-b6f2-c07d6161ba03",
+      "name": "Fetch Support Tickets (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1168,
+        -528
+      ],
+      "id": "fa9926f4-0ebe-45f9-a9ae-3d61d2adc0b2",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NODE: Merge Customers + Tickets from single dataset\n\ntry {\n\n  const rows = $input.all().map(i => i.json);\n\n  // Separate customers and tickets\n  const customers = rows.filter(r => r.customer_id && r.email);\n  const tickets = rows.filter(r => r.ticket_id);\n\n  // Create ticket lookup\n  const ticketMap = new Map();\n\n  tickets.forEach(t => {\n    if (!ticketMap.has(t.customer_id)) {\n      ticketMap.set(t.customer_id, []);\n    }\n\n    ticketMap.get(t.customer_id).push({\n      ticket_id: t.ticket_id,\n      created_date: t.created_date,\n      sentiment: t.sentiment,\n      resolution_time_hours: parseInt(t.resolution_time_hours || 0),\n      category: t.category\n    });\n  });\n\n  const now = new Date();\n\n  const merged = customers.map(cust => {\n\n    const custTickets = ticketMap.get(cust.customer_id) || [];\n\n    const loginDate = new Date(cust.last_login_date);\n    const paymentDate = new Date(cust.last_payment_date);\n    const signupDate = new Date(cust.signup_date);\n\n    const daysSinceLogin = Math.floor((now - loginDate) / (1000*60*60*24));\n    const daysSincePayment = Math.floor((now - paymentDate) / (1000*60*60*24));\n    const tenureMonths = Math.floor((now - signupDate) / (1000*60*60*24*30));\n\n    const negativeTickets = custTickets.filter(t => t.sentiment === \"negative\").length;\n\n    const avgResolution =\n      custTickets.length > 0\n        ? custTickets.reduce((sum, t) => sum + t.resolution_time_hours, 0) / custTickets.length\n        : 0;\n\n    return {\n\n      // Basic customer info\n      customer_id: cust.customer_id,\n      email: cust.email,\n      company_name: cust.company_name,\n      plan_type: cust.plan_type,\n\n      // Tenure\n      signup_date: cust.signup_date,\n      tenure_months: tenureMonths,\n\n      // Activity\n      last_login_date: cust.last_login_date,\n      days_since_login: daysSinceLogin,\n      monthly_usage: cust.monthly_usage || 0,\n\n      // Payment\n      last_payment_date: cust.last_payment_date,\n      days_since_payment: daysSincePayment,\n      payment_status: cust.payment_status,\n\n      // Support metrics\n      total_tickets: custTickets.length,\n      negative_tickets: negativeTickets,\n      avg_resolution_time: Math.round(avgResolution),\n\n      // Recent tickets\n      recent_tickets: custTickets.slice(-5)\n\n    };\n\n  });\n\n  return merged.map(c => ({ json: c }));\n\n} catch (error) {\n\n  console.error(\"Merge error:\", error);\n\n  throw new Error(error.message);\n\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        -528
+      ],
+      "id": "cbd5be3c-f39e-49a1-8c70-0456e8ef2992",
+      "name": "Merge Data (Code Node)"
+    },
+    {
+      "parameters": {
+        "model": "stepfun/step-3.5-flash:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        784,
+        -80
+      ],
+      "id": "f08a78e3-568e-4f08-98dd-445a60df7708",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI output JSON strings for multiple items\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  try {\n\n    let raw = item.json.output;\n\n    if (!raw) {\n      throw new Error(\"Missing output field\");\n    }\n\n    // Extract JSON block (safe in case of extra text)\n    const jsonMatch = raw.match(/\\{[\\s\\S]*\\}/);\n\n    if (!jsonMatch) {\n      throw new Error(\"No JSON object found in output\");\n    }\n\n    const parsed = JSON.parse(jsonMatch[0]);\n\n    // Normalize fields\n    parsed.churn_risk_score = Math.max(\n      0,\n      Math.min(100, Number(parsed.churn_risk_score) || 0)\n    );\n\n    parsed.risk_level = (parsed.risk_level || \"medium\").toLowerCase();\n\n    if (!Array.isArray(parsed.churn_signals)) {\n      parsed.churn_signals = [];\n    }\n\n    if (!Array.isArray(parsed.root_causes)) {\n      parsed.root_causes = [];\n    }\n\n    parsed.confidence_score = Math.max(\n      0,\n      Math.min(1, Number(parsed.confidence_score) || 0)\n    );\n\n    return {\n      json: {\n        ...parsed,\n        parsing_status: \"success\"\n      }\n    };\n\n  } catch (error) {\n\n    return {\n      json: {\n        parsing_status: \"failed\",\n        error: error.message,\n        raw_output: item.json.output\n      }\n    };\n\n  }\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        -272
+      ],
+      "id": "81823a79-c7da-46ca-b3d8-9c3d6da2754c",
+      "name": "Parse AI Response (Code Node)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NODE 10: Classify Risk\n// Input: Multiple customer items with ai_scoring\n// Output: One item per customer with risk classification\n\nconst items = $input.all();\n\nfunction classifyRisk(aiScore) {\n\n  if (aiScore === null || aiScore === undefined) {\n    return { tier: \"medium\", urgency: \"engage\", score: 50 };\n  }\n\n  if (aiScore <= 40) {\n    return { tier: \"low\", urgency: \"monitor\", score: aiScore };\n  }\n\n  if (aiScore <= 70) {\n    return { tier: \"medium\", urgency: \"engage\", score: aiScore };\n  }\n\n  return { tier: \"high\", urgency: \"intervene\", score: aiScore };\n}\n\nreturn items.map((item, index) => {\n\n  const cust = item.json;\n\n  const aiScore = cust.ai_scoring?.churn_risk_score ?? null;\n\n  const classification = classifyRisk(aiScore);\n\n  return {\n    json: {\n      ...cust,\n\n      risk_classification: {\n        tier: classification.tier,\n        score: Math.round(classification.score),\n        urgency: classification.urgency,\n        classified_at: new Date().toISOString(),\n        action_required: classification.tier !== \"low\",\n        batch_index: index\n      }\n\n    }\n  };\n\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -272
+      ],
+      "id": "d92ed2ac-4090-451d-8840-8a0300261045",
+      "name": "Classify Risk (Code Node)"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8",
+          "mode": "list",
+          "cachedResultName": "AI Churn Prediction & Customer Retention Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 476486533,
+          "mode": "list",
+          "cachedResultName": "Daily_Predictions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit#gid=476486533"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{$now}}",
+            "customer_id": "={{ $('Calculate Engagement Scores (Code Node)').item.json.customer_id }}",
+            "email": "={{ $('Calculate Engagement Scores (Code Node)').item.json.email }}",
+            "company_name": "={{ $('Calculate Engagement Scores (Code Node)').item.json.company_name }}",
+            "plan_type": "={{ $('Calculate Engagement Scores (Code Node)').item.json.plan_type }}",
+            "churn_risk_score": "={{ $json.churn_risk_score }}",
+            "risk_level": "={{ $json.risk_level }}",
+            "recommended_action": "={{ $json.risk_classification.action_required }}",
+            "confidence_score": "={{ $json.confidence_score }}",
+            "retention_action_sent": "={{ $json.recommended_retention_action }}",
+            "top_signal": "={{ $json.churn_signals[0] }}\n{{ $json.churn_signals[1] }}\n{{ $json.churn_signals[2] }}\n{{ $json.churn_signals[3] }}\n",
+            "csm_assigned": "={{ $('Calculate Engagement Scores (Code Node)').item.json.customer_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plan_type",
+              "displayName": "plan_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "churn_risk_score",
+              "displayName": "churn_risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risk_level",
+              "displayName": "risk_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "top_signal",
+              "displayName": "top_signal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_action",
+              "displayName": "recommended_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence_score",
+              "displayName": "confidence_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retention_action_sent",
+              "displayName": "retention_action_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "csm_assigned",
+              "displayName": "csm_assigned",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1776,
+        -304
+      ],
+      "id": "09f182fb-78f3-4961-bdd4-a2e88e7910a8",
+      "name": "Append Predictions (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8",
+          "mode": "list",
+          "cachedResultName": "AI Churn Prediction & Customer Retention Engine",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 834404975,
+          "mode": "list",
+          "cachedResultName": "Retention_Actions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zgRuVmJnCtl1Kks-ym6PGurgcO5KCT3lb453fiaL3o8/edit#gid=834404975"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "customer_id": "={{ $json.customer_id }}",
+            "action_type": "email",
+            "action_detail": "=Retention email sent to {{ $json.email }}",
+            "status": "sent",
+            "follow_up_date": "={{ $now.plus(1, 'day').toISO() }}",
+            "outcome_status": "pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_type",
+              "displayName": "action_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_detail",
+              "displayName": "action_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "follow_up_date",
+              "displayName": "follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outcome_status",
+              "displayName": "outcome_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        -480
+      ],
+      "id": "d4a1053e-1eb9-4dcd-b776-1f2d6ee03dc4",
+      "name": "Append Actions (Google Sheets)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NODE 6: Validate Data\n// Input: customer items\n// Output: validated customers\n\nconst items = $input.all();\n\nconst validated = items.map(item => {\n  const cust = item.json;\n\n  const errors = [];\n  const warnings = [];\n\n  // Required fields\n  if (!cust.customer_id) errors.push(\"Missing customer_id\");\n  if (!cust.email) errors.push(\"Missing email\");\n  if (!cust.plan_type) errors.push(\"Missing plan_type\");\n  if (!cust.payment_status) errors.push(\"Missing payment_status\");\n\n  // Date validation\n  const loginDate = new Date(cust.last_login_date);\n  if (isNaN(loginDate.getTime())) {\n    errors.push(\"Invalid last_login_date\");\n  }\n\n  const paymentDate = new Date(cust.last_payment_date);\n  if (isNaN(paymentDate.getTime())) {\n    errors.push(\"Invalid last_payment_date\");\n  }\n\n  // Email validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(cust.email || \"\")) {\n    errors.push(\"Invalid email format\");\n  }\n\n  // Plan validation\n  const validPlans = [\"Free\", \"Pro\", \"Enterprise\"];\n  if (!validPlans.includes(cust.plan_type)) {\n    warnings.push(`Unknown plan_type: ${cust.plan_type}`);\n  }\n\n  // Payment status validation\n  const validStatuses = [\"active\", \"failed\", \"pending\", \"expired\"];\n  if (!validStatuses.includes((cust.payment_status || \"\").toLowerCase())) {\n    warnings.push(`Unknown payment_status: ${cust.payment_status}`);\n  }\n\n  // Numeric checks\n  if (cust.days_since_login < 0) {\n    warnings.push(\"days_since_login negative\");\n  }\n\n  return {\n    json: {\n      ...cust,\n      validation: {\n        status: errors.length === 0 ? \"passed\" : \"failed\",\n        errors,\n        warnings,\n        error_count: errors.length,\n        warning_count: warnings.length\n      }\n    }\n  };\n});\n\nreturn validated;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -272
+      ],
+      "id": "6305e8e9-ee66-4217-bfb3-489b7d40cd75",
+      "name": "Validate Data (Code Node)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// NODE 7: Calculate Engagement Scores\n// Input: validated customer items\n// Output: customer items with engagement scores\n\nconst items = $input.all();\n\nconst calculateLoginRecencyScore = (days) => {\n  if (days === 0) return 100;\n  if (days <= 7) return 100 - (days * 2);\n  if (days <= 30) return 85 - ((days - 7) * 1.5);\n  if (days <= 90) return 50 - ((days - 30) * 0.67);\n  return Math.max(10, 50 - ((days - 30) * 0.67));\n};\n\nconst calculateUsageConsistencyScore = (monthlyUsage = 0, activityScore = 50, featureCount = 0) => {\n  const usageComponent = Math.min(100, (monthlyUsage / 5000) * 100);\n  const activityComponent = activityScore;\n  const featureComponent = Math.min(100, (featureCount / 15) * 100);\n\n  return usageComponent * 0.4 + activityComponent * 0.4 + featureComponent * 0.2;\n};\n\nconst calculateSupportFrustrationScore = (negativeTickets = 0, totalTickets = 0, avgResolutionTime = 0) => {\n  if (totalTickets === 0) return 75;\n\n  const negativityRatio = negativeTickets / totalTickets;\n  const negativityScore = 100 - (negativityRatio * 100);\n  const resolutionPenalty = Math.min(40, (avgResolutionTime / 72) * 40);\n\n  return Math.max(10, negativityScore - resolutionPenalty);\n};\n\nconst calculatePaymentReliabilityScore = (paymentStatus = \"active\", daysSincePayment = 0, planType = \"Free\") => {\n\n  const statusScores = {\n    active: 100,\n    pending: 60,\n    failed: 20,\n    expired: 10\n  };\n\n  let baseScore = statusScores[paymentStatus.toLowerCase()] ?? 50;\n\n  if (daysSincePayment > 45) {\n    baseScore -= Math.min(30, (daysSincePayment - 45) * 0.5);\n  }\n\n  if (planType === \"Enterprise\") {\n    baseScore = Math.min(100, baseScore + 5);\n  }\n\n  return Math.max(10, baseScore);\n};\n\nconst results = items.map(item => {\n\n  const cust = item.json;\n\n  if (cust.validation?.status === \"failed\") {\n    return {\n      json: {\n        ...cust,\n        engagement_scores: {\n          login_recency_score: 0,\n          usage_consistency_score: 0,\n          support_frustration_score: 0,\n          payment_reliability_score: 0,\n          composite_engagement_score: 0\n        },\n        analysis_skipped: true\n      }\n    };\n  }\n\n  const lrs = calculateLoginRecencyScore(cust.days_since_login);\n  const ucs = calculateUsageConsistencyScore(\n    cust.monthly_usage,\n    cust.activity_score,\n    cust.feature_usage_count\n  );\n\n  const sfs = calculateSupportFrustrationScore(\n    cust.negative_tickets,\n    cust.total_tickets,\n    cust.avg_resolution_time\n  );\n\n  const prs = calculatePaymentReliabilityScore(\n    cust.payment_status,\n    cust.days_since_payment,\n    cust.plan_type\n  );\n\n  const ces = (lrs * 0.35 + ucs * 0.30 + sfs * 0.20 + prs * 0.15);\n\n  return {\n    json: {\n      ...cust,\n\n      engagement_scores: {\n        login_recency_score: Math.round(lrs),\n        usage_consistency_score: Math.round(ucs),\n        support_frustration_score: Math.round(sfs),\n        payment_reliability_score: Math.round(prs),\n        composite_engagement_score: Math.round(ces)\n      },\n\n      churn_risk_indicators: {\n        inactive_days_threshold_exceeded: cust.days_since_login > 30,\n        low_usage_pattern: cust.monthly_usage < 1000,\n        high_support_issues: cust.negative_tickets > 2,\n        payment_problems: cust.payment_status !== \"active\"\n      },\n\n      analysis_skipped: false\n    }\n  };\n\n});\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -272
+      ],
+      "id": "e2baccec-3131-4441-8c39-327241e5549f",
+      "name": "Calculate Engagement Scores (Code Node)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this customer for churn risk:\n\nCustomer Profile:\n- Customer ID: {{ $json.customer_id }}\n- Company: {{ $json.company_name }}\n- Plan: {{ $json.plan_type }}\n- Tenure: months\n- Composite {{ $json.tenure_months }} Engagement Score: /{{ $json.engagement_scores.composite_engagement_score }}100\n\nEngagement Metrics:\n- Days Since Last Login: {{ $json.days_since_login }}\n- Monthly API Usage: {{ $json.monthly_usage }}\n- Features Used: {feature_usage_count}/20\n- Login Frequency: {login_frequency} logins/month\n- Support Tickets (30d): {{ $json.total_tickets }}\n- Negative Sentiment Tickets: {{ $json.negative_tickets }}\n- Avg Resolution Time: {{ $json.avg_resolution_time }} hours\n\nScore Breakdown:\n- Login Recency Score: {{ $json.engagement_scores.login_recency_score }}/100\n- Usage Consistency Score: {{ $json.engagement_scores.usage_consistency_score }}/100\n- Support Frustration Score: {{ $json.engagement_scores.support_frustration_score }}/100\n- Payment Reliability Score: {{ $json.engagement_scores.payment_reliability_score }}/100\n\nPayment & Billing:\n- Status: {{ $json.payment_status }}\n- Days Since Last Payment: {{ $json.days_since_payment }}\n\nRecent Issues:\n{recent_tickets_summary}\n\nProvide churn risk assessment in JSON format only. No additional text.",
+        "options": {
+          "systemMessage": "=You are an expert SaaS customer success analyst specializing in churn prediction.\n\nYour task is to analyze customer engagement data and predict churn risk.\n\nOutput ONLY valid JSON with no additional text, markdown, or explanations.\n\nScoring rules:\n- Churn Risk Score: 0-100 (0=no risk, 100=definite churn)\n- Base scores by activity level:\n  - Inactive 90+ days: 60-80 base\n  - Low usage: 40-60 base\n  - Declining trend: 30-50 base\n  - Active user: 0-25 base\n\nModifiers:\n- Payment issues: +20-30 points\n- High support frustration: +10-20 points\n- Enterprise plan: -10 points (more stable)\n- Long tenure (2+ years): -5 points (loyal)\n- High activity score (>75): -15 points\n\nRisk levels:\n- 0-40: Low (unlikely to churn)\n- 41-70: Medium (possible, needs attention)\n- 71-100: High (imminent risk, urgent action needed)\n\nReturn JSON format:\n{\n  \"churn_risk_score\": number,\n  \"risk_level\": \"low\" | \"medium\" | \"high\",\n  \"churn_signals\": [array of 3-5 signal strings],\n  \"root_causes\": [array of 2-3 cause strings],\n  \"recommended_retention_action\": \"specific action string\",\n  \"confidence_score\": number between 0-1\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        784,
+        -272
+      ],
+      "id": "91212e18-9f9f-4036-bc05-8a44f62f9537",
+      "name": "AI Churn Scoring"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "83459d49-6af0-4084-9f87-eb0d967e6110",
+              "leftValue": "={{ $json.risk_classification.tier }}",
+              "rightValue": "medium",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "a245176c-7fa6-4ff6-afea-fee5ea00e492",
+              "leftValue": "={{ $json.risk_classification.tier }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1552,
+        -272
+      ],
+      "id": "27954c5e-eb97-4266-941b-023f98cf1d68",
+      "name": "High-Risk Split"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gamil.com",
+        "subject": "We Want to Help You Get More Value from Platform",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n    <style>\n        body { font-family: Arial, sans-serif; color: #333; }\n        .container { max-width: 600px; margin: 0 auto; }\n        .header { background: #0066cc; color: white; padding: 20px; }\n        .content { padding: 20px; }\n        .button { background: #0066cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }\n        .footer { color: #666; font-size: 12px; padding: 20px; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h1>We Want to Help You</h1>\n        </div>\n        <div class=\"content\">\n            <p>Hi {{ $('Calculate Engagement Scores (Code Node)').item.json.company_name }}</p>\n            \n            <p>We noticed you haven't been as active  lately, and we want to make sure you're getting maximum value from your {{ $('Calculate Engagement Scores (Code Node)').item.json.plan_type }} plan.</p>\n            \n            <h3>Here's What We're Seeing:</h3>\n            <ul>{{ $json.ai_scoring }}\n            </ul>\n            \n            <h3>We'd Love to Help!</h3>\n            <p>Our team is ready to support you with:</p>\n            <ul>\n                <li>✓ Free onboarding refresh</li>\n                <li>✓ Integration support</li>\n                <li>✓ Feature training</li>\n                <li>✓ Special pricing options</li>\n            </ul>\n            \n            <p style=\"margin-top: 30px;\">\n                <a href=\"\"\nclass=\"button\">Schedule a Call</a>\n            </p>\n            \n            <p>Or reply to this email to discuss your needs directly.</p>\n            \n            <p>Best regards,<br><br>Customer Success Manager<br>success@company.com</p>\n        </div>\n        <div class=\"footer\">\n            <p>If you're experiencing issues, please let us know immediately.</p>\n        </div>\n    </div>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1792,
+        -528
+      ],
+      "id": "8039f74b-e025-42c6-8614-c112d632d2b1",
+      "name": "Send Retention Email (Email Node)",
+      "webhookId": "1bc8326f-9a1b-4f72-89f5-e99b8d671334",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// NODE 17: Execution Summary\n// Works with multiple customer items and handles null values safely\n\nconst items = $input.all();\n\n// Safe execution timestamps\nconst executionStartRaw = $execution?.startTime;\nconst executionStart = executionStartRaw ? new Date(executionStartRaw).getTime() : Date.now();\nconst executionEnd = Date.now();\n\nconst durationSeconds = Math.round((executionEnd - executionStart) / 1000);\n\n// Counters\nlet high = 0;\nlet medium = 0;\nlet low = 0;\n\nitems.forEach(item => {\n\n  const risk = (item.json?.risk_level || \"\").toLowerCase();\n\n  if (risk === \"high\") high++;\n  else if (risk === \"medium\") medium++;\n  else if (risk === \"low\") low++;\n\n});\n\nconst total = items.length;\n\n// Safe ISO converter\nfunction safeISO(ts) {\n  const d = new Date(ts);\n  return isNaN(d.getTime()) ? null : d.toISOString();\n}\n\nreturn [{\n  json: {\n    execution: {\n      id: $execution?.id || null,\n      status: \"success\",\n      duration_seconds: durationSeconds,\n      started_at: safeISO(executionStart),\n      completed_at: safeISO(executionEnd)\n    },\n\n    summary: {\n      timestamp: new Date().toISOString(),\n      workflow_name: \"AI Churn Prediction & Retention Engine\",\n\n      total_customers_analyzed: total,\n      high_risk_customers: high,\n      medium_risk_customers: medium,\n      low_risk_customers: low,\n\n      retention_actions_triggered: high,\n      churn_risk_rate: total ? ((high / total) * 100).toFixed(2) + \"%\" : \"0%\",\n\n      success_rate: \"100%\"\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -240
+      ],
+      "id": "bfeadf53-4b2a-41f0-a0ca-aaa34018cfec",
+      "name": "Execution Summary (Code Node)"
+    }
+  ],
+  "pinData": {
+    "AI Churn Scoring": [
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 40,\n  \"risk_level\": \"low\",\n  \"churn_signals\": [\n    \"Low usage consistency score (30/100)\",\n    \"Moderate support frustration (support frustration score 59/100)\",\n    \"Low composite engagement score (33/100)\",\n    \"Recent login (17 days) with inconsistent usage pattern\"\n  ],\n  \"root_causes\": [\n    \"Inconsistent product usage habits\",\n    \"Customer frustration with support interactions\",\n    \"Potential lack of feature adoption or awareness\"\n  ],\n  \"recommended_retention_action\": \"Proactive customer success outreach to understand usage barriers, offer feature training, and address support concerns.\",\n  \"confidence_score\": 0.6\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 15,\n  \"risk_level\": \"low\",\n  \"churn_signals\": [\n    \"Moderate usage consistency score (60/100) indicating inconsistent engagement patterns\",\n    \"Enterprise plan with potential overcapacity or misaligned usage\",\n    \"Feature utilization data incomplete, possible underadoption\",\n    \"Login frequency and API usage variability despite recent login\"\n  ],\n  \"root_causes\": [\n    \"Inconsistent usage frequency over time\",\n    \"Possible gap between enterprise plan capabilities and actual feature adoption\",\n    \"Lack of visibility into full feature engagement\"\n  ],\n  \"recommended_retention_action\": \"Schedule a proactive business review with customer success to analyze usage patterns, identify feature adoption gaps, and provide tailored optimization recommendations\",\n  \"confidence_score\": 0.65\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 65,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"Usage consistency score critically low at 21/100\",\n    \"Support frustration score high at 75/100 despite zero recent tickets\",\n    \"Recent login (2 days ago) but overall engagement inconsistent\",\n    \"Free plan with moderate composite engagement score (70/100)\"\n  ],\n  \"root_causes\": [\n    \"Inconsistent usage patterns preventing value realization\",\n    \"Past support issues leading to persistent frustration\",\n    \"Free tier limitations reducing long-term engagement\"\n  ],\n  \"recommended_retention_action\": \"Proactive customer success outreach to address usage barriers and highlight premium features\",\n  \"confidence_score\": 0.4\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 90,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\"Payment failure with 48 days since last payment\", \"79 days since last login indicating low activity\", \"Low login recency score of 17/100\", \"Low usage consistency score of 37/100\", \"All 4 support tickets in last 30 days had negative sentiment\"],\n  \"root_causes\": [\"Critical billing issues causing service disruption\", \"Severely declining user engagement and feature adoption\", \"Poor support experience with high frustration and slow resolution\"],\n  \"recommended_retention_action\": \"Urgently resolve failed payment and offer a personalized re-engagement session with a customer success manager to address usage barriers and provide advanced training.\",\n  \"confidence_score\": 0.75\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 100,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"Inactive for 104 days (login recency score 10/100)\",\n    \"Payment overdue for 74 days (status pending)\",\n    \"High support frustration (score 18/100, 2/3 tickets negative)\",\n    \"Low usage consistency (score 24/100)\"\n  ],\n  \"root_causes\": [\n    \"Severe payment issues causing potential service suspension\",\n    \"Poor support experience with negative sentiment\",\n    \"Lack of engagement indicating low product value\"\n  ],\n  \"recommended_retention_action\": \"Urgent outreach: waive late fees, offer retention discount, assign success manager for re-engagement, and resolve support tickets promptly\",\n  \"confidence_score\": 0.75\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 45,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"Usage consistency score of 60/100 indicates inconsistent engagement\",\n    \"Composite engagement score of 58/100 suggests moderate overall engagement\",\n    \"Recent login but with potential usage inconsistency\"\n  ],\n  \"root_causes\": [\n    \"Inconsistent product usage patterns\",\n    \"Moderate engagement levels despite enterprise plan\"\n  ],\n  \"recommended_retention_action\": \"Conduct a proactive usage review call to discuss engagement metrics, identify adoption barriers, and provide tailored training to increase feature utilization.\",\n  \"confidence_score\": 0.75\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 50,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"Usage Consistency Score: 26/100 (critically low)\",\n    \"Composite Engagement Score: 26/100 indicates very poor engagement\",\n    \"High Login Recency (92/100) without corresponding usage suggests low product value perception\",\n    \"Inconsistent usage pattern despite recent login activity\"\n  ],\n  \"root_causes\": [\n    \"Product not delivering expected value or failing to integrate into user workflow\",\n    \"Inadequate onboarding or feature adoption leading to underutilization\",\n    \"Potential mismatch between Pro plan capabilities and user needs\"\n  ],\n  \"recommended_retention_action\": \"Initiate a personalized customer success call to diagnose usage barriers, review key features, and co-create an adoption plan.\",\n  \"confidence_score\": 0.75\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 90,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"Inactive for 93 days (login recency score 10/100)\",\n    \"Low usage consistency score (22/100)\",\n    \"High support frustration: 4 negative sentiment tickets in 30 days\",\n    \"Slow average resolution time (69 hours)\",\n    \"Free plan with minimal engagement indicators\"\n  ],\n  \"root_causes\": [\n    \"Prolonged inactivity and disengagement\",\n    \"Negative support experiences with slow resolutions\",\n    \"Low perceived value on free tier\"\n  ],\n  \"recommended_retention_action\": \"Immediate proactive outreach by customer success to address inactivity, apologize for support issues, and offer personalized onboarding or incentives to re-engage\",\n  \"confidence_score\": 0.8\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 65,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"53 days since last login indicating disengagement\",\n    \"High support frustration: 6 tickets in 30 days with 5 negative sentiment\",\n    \"Low usage consistency score (28/100) and low login recency (35/100)\",\n    \"Low composite engagement score (27/100)\"\n  ],\n  \"root_causes\": [\n    \"Poor support experience with slow resolution (28h avg) and high negative sentiment\",\n    \"Low product adoption and inconsistent usage patterns\"\n  ],\n  \"recommended_retention_action\": \"Immediate proactive outreach by customer success manager to resolve support issues and conduct a tailored usage review to identify adoption barriers\",\n  \"confidence_score\": 0.7\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 34,\n  \"risk_level\": \"low\",\n  \"churn_signals\": [\n    \"Low composite engagement score (44/100)\",\n    \"Moderate usage consistency score (60/100)\",\n    \"Potential for inconsistent usage patterns affecting long-term retention\"\n  ],\n  \"root_causes\": [\n    \"Low product adoption or feature utilization\",\n    \"Inconsistent user behavior despite recent logins\"\n  ],\n  \"recommended_retention_action\": \"Conduct proactive engagement review to identify usage barriers and promote feature adoption through targeted training\",\n  \"confidence_score\": 0.65\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 80,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"High support ticket volume (10 in 30 days) with 90% negative sentiment\",\n    \"Low usage consistency score (25/100)\",\n    \"31 days since last login\",\n    \"Very low support frustration score (10/100)\"\n  ],\n  \"root_causes\": [\n    \"Poor customer support experience leading to frustration\",\n    \"Low product engagement and inconsistent usage\"\n  ],\n  \"recommended_retention_action\": \"Immediate customer success intervention to resolve all support issues and provide personalized re-engagement plan\",\n  \"confidence_score\": 0.7\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 100,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"Inactive for 109 days (Days Since Last Login)\",\n    \"Payment failure with 31 days overdue\",\n    \"High support frustration: 7 negative tickets in 30 days, 89-hour avg resolution\",\n    \"Low engagement scores: Login Recency 10/100, Usage Consistency 21/100\"\n  ],\n  \"root_causes\": [\n    \"Customer disengagement and prolonged inactivity\",\n    \"Billing issues leading to service disruption\",\n    \"Poor support experience with negative sentiment\"\n  ],\n  \"recommended_retention_action\": \"Immediately contact customer to resolve payment failure, provide dedicated support for ticket resolution, and offer a personalized re-engagement plan with incentives to upgrade from free tier.\",\n  \"confidence_score\": 0.9\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 10,\n  \"risk_level\": \"low\",\n  \"churn_signals\": [\n    \"Days since last login: 0 (highly active)\",\n    \"Usage Consistency Score: 60/100 (moderate inconsistency)\",\n    \"No support tickets or negative sentiment in last 30 days\",\n    \"Payment Reliability Score: 100/100\"\n  ],\n  \"root_causes\": [\n    \"High login recency and frequency\",\n    \"Excellent payment reliability\",\n    \"Absence of support issues\"\n  ],\n  \"recommended_retention_action\": \"Conduct a usage review to identify opportunities for improved feature adoption and consistency.\",\n  \"confidence_score\": 0.65\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 70,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"High support ticket volume (9 tickets in 30 days)\",\n    \"Extremely high negative sentiment in support tickets (8 out of 9)\",\n    \"Low usage consistency score (23/100)\",\n    \"Moderate login recency (last login 43 days ago)\"\n  ],\n  \"root_causes\": [\n    \"Ineffective support leading to high frustration\",\n    \"Low product engagement and inconsistent usage\"\n  ],\n  \"recommended_retention_action\": \"Assign a dedicated support agent to resolve all outstanding tickets and conduct a satisfaction follow-up with product engagement tips\",\n  \"confidence_score\": 0.7\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 60,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"Support frustration score critically high (96/100)\",\n    \"Usage consistency low (48/100)\",\n    \"Overall engagement score low (34/100)\",\n    \"Recent login but inconsistent usage pattern\"\n  ],\n  \"root_causes\": [\n    \"Poor support experience leading to frustration\",\n    \"Inconsistent product usage indicating low value realization\"\n  ],\n  \"recommended_retention_action\": \"Proactive support outreach to resolve outstanding issues and offer usage consultation\",\n  \"confidence_score\": 0.7\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 75,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"High support ticket volume (3 in 30 days)\",\n    \"Very low usage consistency score (22/100)\",\n    \"High support frustration score (91/100)\",\n    \"Inconsistent engagement despite recent login\",\n    \"Free plan user with elevated support needs\"\n  ],\n  \"root_causes\": [\n    \"Unresolved product issues driving repeated support requests\",\n    \"Low engagement consistency indicating potential value disconnect\"\n  ],\n  \"recommended_retention_action\": \"Proactive support callback to resolve all open issues and provide personalized onboarding to increase feature adoption\",\n  \"confidence_score\": 0.75\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 50,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\"Low usage consistency score (60/100)\", \"Composite engagement score below average (54)\", \"Recent login but historical usage inconsistency\", \"Enterprise plan with engagement metrics below expectations\"],\n  \"root_causes\": [\"Inconsistent product usage habits\", \"Lack of feature adoption or value realization\", \"Potential short tenure based on 'months' designation\"],\n  \"recommended_retention_action\": \"Initiate a personalized engagement review to analyze usage patterns, identify adoption barriers, and develop a tailored training plan to improve consistency and feature utilization.\",\n  \"confidence_score\": 0.5\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 70,\n  \"risk_level\": \"medium\",\n  \"churn_signals\": [\n    \"84 days since last login indicating inactivity\",\n    \"Low usage consistency score (24/100) showing inconsistent engagement\",\n    \"Elevated support frustration score (62/100) reflecting dissatisfaction\",\n    \"4 support tickets in 30 days with 1 negative sentiment\",\n    \"Low login recency score (14/100) confirming infrequent access\"\n  ],\n  \"root_causes\": [\n    \"Disengagement due to infrequent logins and poor usage consistency\",\n    \"Frustration from support interactions and moderate resolution times\"\n  ],\n  \"recommended_retention_action\": \"Conduct a proactive customer success outreach to address support issues, provide usage guidance, and offer re-engagement incentives.\",\n  \"confidence_score\": 0.7\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 100,\n  \"risk_level\": \"high\",\n  \"churn_signals\": [\n    \"Inactive for 154 days (Days Since Last Login > 90)\",\n    \"Payment failed with 109 days since last payment\",\n    \"High support ticket volume: 12 tickets in 30 days, all negative sentiment\",\n    \"Low usage consistency score: 21/100\",\n    \"Low login recency score: 10/100\"\n  ],\n  \"root_causes\": [\n    \"Payment failure causing service disruption and loss of trust\",\n    \"Severe user disengagement with very low activity scores\",\n    \"High support frustration due to long resolution times and all-negative tickets\"\n  ],\n  \"recommended_retention_action\": \"Urgently contact customer to resolve payment issues, assign dedicated support to address frustrations, and offer a customized paid plan with enhanced features to re-engage\",\n  \"confidence_score\": 0.8\n}"
+        }
+      },
+      {
+        "json": {
+          "output": "{\n  \"churn_risk_score\": 40,\n  \"risk_level\": \"low\",\n  \"churn_signals\": [\n    \"Composite engagement score of 48/100 indicating low overall engagement\",\n    \"Usage consistency score of 60/100 suggesting irregular usage patterns\",\n    \"Enterprise customer with suboptimal engagement metrics\"\n  ],\n  \"root_causes\": [\n    \"Inconsistent product usage and low engagement levels\",\n    \"Potential lack of feature adoption or value realization\",\n    \"No reported issues but underlying disengagement risk\"\n  ],\n  \"recommended_retention_action\": \"Conduct a proactive customer health review with tailored engagement plan to boost usage and feature adoption.\",\n  \"confidence_score\": 0.5\n}"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Customers (Google Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Support Tickets (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Customers (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Support Tickets (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge Data (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Data (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "Validate Data (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Churn Scoring",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "Classify Risk (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Risk (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "High-Risk Split",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Predictions (Google Sheets)": {
+      "main": [
+        [
+          {
+            "node": "Append Actions (Google Sheets)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execution Summary (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Actions (Google Sheets)": {
+      "main": [
+        []
+      ]
+    },
+    "Validate Data (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "Calculate Engagement Scores (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Engagement Scores (Code Node)": {
+      "main": [
+        [
+          {
+            "node": "AI Churn Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Churn Scoring": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response (Code Node)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High-Risk Split": {
+      "main": [
+        [
+          {
+            "node": "Send Retention Email (Email Node)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append Predictions (Google Sheets)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d74824dd-b842-49ac-9fc7-d017f7958f23",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "ZQx9F60T9pzbme62",
+  "tags": []
+}

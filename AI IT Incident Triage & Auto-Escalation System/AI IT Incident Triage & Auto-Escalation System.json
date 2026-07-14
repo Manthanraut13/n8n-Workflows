@@ -1,0 +1,652 @@
+{
+  "name": "AI IT Incident Triage & Auto-Escalation System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/alert-ingest",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "80d74d9f-cdda-44ce-8abf-875dfbe5f6d4",
+      "name": "Webhook",
+      "webhookId": "3b8a903a-bc78-4d52-bd8d-a199a21de68a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code node — Run Once for All Items\nconst body = $input.first().json.body;\nconst headers = $input.first().json.headers;\n\n// Generate deduplication key\nconst dedupKey = `${body.service || 'unknown'}-${body.alert_name || 'unknown'}-${Math.floor(Date.now() / 60000)}`;\n\n// Normalize severity hint (convert source-specific to internal)\nconst severityMap = {\n  'p0': 'critical', 'p1': 'critical', 'p2': 'high',\n  'p3': 'medium', 'p4': 'low', 'critical': 'critical',\n  'high': 'high', 'warning': 'medium', 'info': 'low',\n  'ok': 'low', '1': 'critical', '2': 'high', '3': 'medium', '4': 'low'\n};\n\nconst rawSeverity = (body.severity_hint || body.severity || 'unknown').toLowerCase();\nconst normalizedSeverityHint = severityMap[rawSeverity] || 'medium';\n\n// Sanitize logs (truncate to 2000 chars to stay within token limits)\nconst rawLogs = body.logs || body.message || body.description || 'No logs provided';\nconst truncatedLogs = rawLogs.length > 2000 ? rawLogs.substring(0, 2000) + '...[truncated]' : rawLogs;\n\nconst normalized = {\n  // Core identification\n  incident_id: `INC-${Date.now()}`,\n  dedup_key: dedupKey,\n  \n  // Alert details\n  alert_name: body.alert_name || body.alertname || body.title || 'Unknown Alert',\n  service: body.service || body.labels?.service || body.tags?.service || 'unknown-service',\n  environment: body.environment || body.env || body.labels?.environment || 'unknown',\n  host: body.host || body.hostname || body.labels?.instance || 'unknown-host',\n  \n  // Time\n  timestamp: body.timestamp || body.startsAt || new Date().toISOString(),\n  received_at: new Date().toISOString(),\n  \n  // Severity\n  severity_hint: normalizedSeverityHint,\n  \n  // Logs and metrics\n  logs: truncatedLogs,\n  metrics: body.metrics || {},\n  \n  // Source\n  source: body.source || headers['x-source'] || 'unknown',\n  \n  // Raw for debugging\n  raw_payload: JSON.stringify(body).substring(0, 500)\n};\n\nreturn [{ json: normalized }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "48e15543-354e-4241-a147-65bdff8e22ed",
+      "name": "Normalize Alert Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "='You are an SRE incident triage assistant.\n\nAnalyze the following IT alert and return ONLY a valid JSON response. Do NOT include any explanation, text, or formatting outside the JSON.\n\n========================\nALERT DETAILS\n========================\nAlert Name: {{ $json.alert_name }}\nService: {{ $json.service }}\nEnvironment: {{ $json.environment }}\nHost: {{ $json.host }}\nTimestamp: {{ $json.timestamp }}\nSeverity Hint: {{ $json.severity_hint }}\n\n========================\nLOGS\n========================\n{{ $json.logs }}\n\n========================\nMETRICS\n========================\n{{ $json.raw_payload }}\n\n========================\nINSTRUCTIONS\n========================\n- Classify severity accurately (ignore severity_hint if incorrect)\n- Infer the most likely root cause\n- Identify affected services if possible\n- Recommend a clear, actionable step\n- Decide if escalation is required\n- Estimate user/business impact\n\n========================\nOUTPUT FORMAT (STRICT JSON ONLY)\n========================\n{\n  \"severity\": \"LOW | MEDIUM | HIGH | CRITICAL\",\n  \"confidence\": 0-100,\n  \"root_cause\": \"one sentence explanation\",\n  \"affected_services\": [\"service1\", \"service2\"],\n  \"recommended_action\": \"specific actionable step\",\n  \"escalation_required\": true,\n  \"estimated_impact\": \"brief user-facing impact description\",\n  \"triage_summary\": \"2-3 sentence summary for the incident channel\"\n}",
+        "options": {
+          "systemMessage": "You are an expert SRE (Site Reliability Engineer) and IT incident triage specialist with 10+ years of experience. You analyze infrastructure alerts and classify their severity accurately. You MUST respond with ONLY valid JSON — no markdown, no explanation, no code blocks. Just raw JSON."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5e1811a1-7741-4ad6-b16c-909637c4e524",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "arcee-ai/trinity-mini:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        416,
+        176
+      ],
+      "id": "e70effdf-b898-4480-8d7c-2a4e1c0b4735",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YCawzcwbZd7VllSz",
+          "name": "OpenRouter account for AI Journal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nconst previousData = $('Normalize Alert Data').first().json;\n\nlet aiResult;\n\ntry {\n  // Extract the content string from OpenRouter response\n  const rawContent = aiResponse.choices?.[0]?.message?.content || '';\n  \n  // Strip any accidental markdown code blocks\n  const cleaned = rawContent\n    .replace(/```json\\n?/gi, '')\n    .replace(/```\\n?/gi, '')\n    .trim();\n  \n  aiResult = JSON.parse(cleaned);\n  \n  // Validate required fields\n  const validSeverities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];\n  if (!validSeverities.includes(aiResult.severity)) {\n    throw new Error(`Invalid severity: ${aiResult.severity}`);\n  }\n  \n} catch (err) {\n  // FALLBACK: If AI fails or returns invalid JSON\n  console.log('AI parse failed, using fallback. Error:', err.message);\n  aiResult = {\n    severity: 'MEDIUM',\n    confidence: 0,\n    root_cause: 'AI triage unavailable - manual review required',\n    affected_services: [previousData.service],\n    recommended_action: 'Manually investigate alert - AI classification failed',\n    escalation_required: false,\n    estimated_impact: 'Unknown - AI triage failed',\n    triage_summary: `Alert received for ${previousData.service} but AI triage failed. Manual review needed.`,\n    ai_failed: true\n  };\n}\n\n// Build the complete incident object\nconst incident = {\n  ...previousData,\n  \n  // AI Analysis\n  ai_severity: aiResult.severity,\n  ai_confidence: aiResult.confidence || 0,\n  ai_root_cause: aiResult.root_cause,\n  ai_affected_services: aiResult.affected_services || [previousData.service],\n  ai_recommended_action: aiResult.recommended_action,\n  ai_escalation_required: aiResult.escalation_required ?? (aiResult.severity === 'CRITICAL' || aiResult.severity === 'HIGH'),\n  ai_estimated_impact: aiResult.estimated_impact,\n  ai_triage_summary: aiResult.triage_summary,\n  ai_failed: aiResult.ai_failed || false,\n  \n  // Routing field for Switch node\n  severity_level: aiResult.severity,\n  \n  // Slack channel name (lowercase, no spaces, max 80 chars)\n  slack_channel_name: `incident-${previousData.service.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now().toString().slice(-6)}`,\n  \n  // Jira labels\n  jira_priority: { 'CRITICAL': 'Highest', 'HIGH': 'High', 'MEDIUM': 'Medium', 'LOW': 'Low' }[aiResult.severity] || 'Medium',\n};\n\nreturn [{ json: incident }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        0
+      ],
+      "id": "597078ed-ed38-4d51-b9e1-beb18abbc1f4",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.severity_level }}",
+                    "rightValue": "CRITICAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8d4ebcc1-db1f-45a5-82fe-2fad4d63344c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CRITICAL"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d3bac773-4567-4555-b3db-581c4ee53370",
+                    "leftValue": "={{ $json.severity_level }}",
+                    "rightValue": "HIGH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HIGH"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "524e4e44-9c93-4e0b-9590-e387555eb0ef",
+                    "leftValue": "={{ $json.severity_level }}",
+                    "rightValue": "MEDIUM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MEDIUM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "aa2359b3-783b-4066-ac48-0c561c3a1661",
+                    "leftValue": "={{ $json.severity_level }}",
+                    "rightValue": "LOW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LOW"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        976,
+        -32
+      ],
+      "id": "f762d1bf-cece-4550-a989-f6d46b6747cd",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "invite",
+        "channelId": {
+          "__rl": true,
+          "value": "C0APDDNNEMT",
+          "mode": "id"
+        },
+        "userIds": [
+          "U0A91R6QT62",
+          "USLACKBOT"
+        ]
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1232,
+        -144
+      ],
+      "id": "66cf4201-7b05-410c-93a9-20b968901259",
+      "name": "Invite a user to a channel",
+      "webhookId": "d7cd88b4-23a5-445e-b48a-05026511bf91",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "channelId": "={{ $json.slack_channel_name }}-"
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1200,
+        -320
+      ],
+      "id": "9ce0d820-9dc1-4ab2-9fd3-e9c5a444ff2a",
+      "name": "Slack Channel Create",
+      "webhookId": "25dfc19c-556f-426f-886c-7ccf48507516",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "project": {
+          "__rl": true,
+          "value": "10000",
+          "mode": "list",
+          "cachedResultName": "My Software Team"
+        },
+        "issueType": {
+          "__rl": true,
+          "value": "10003",
+          "mode": "list",
+          "cachedResultName": "Task"
+        },
+        "summary": "=INCIDENT SUMMARY: {{ $('Switch').item.json.ai_triage_summary }}AI ROOT CAUSE HYPOTHESIS: {{ $('Switch').item.json.ai_root_cause }}.Incident ID: {{ $('Switch').item.json.incident_id }}",
+        "additionalFields": {
+          "priority": {
+            "__rl": true,
+            "value": "2",
+            "mode": "list",
+            "cachedResultName": "High"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -320
+      ],
+      "id": "3c08d536-9514-45f9-9a0d-6bce11852b16",
+      "name": "Jira Ticket",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "oPDI6pdkLHexpnEI",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $('Slack Channel Create').item.json.id }}",
+          "mode": "name"
+        },
+        "text": "=📋 Jira ticket created: {{ $json.self }}\n\n*{{ $json.key }}|{{ $json.key }}>* — {{ $('Parse AI Response').first().json.service }} {{ $('Parse AI Response').first().json.ai_severity }} incident",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1536,
+        -320
+      ],
+      "id": "258a7c9a-4c3d-488e-80be-b8a38f69dc95",
+      "name": "Slack Alert Message",
+      "webhookId": "66e1f762-7122-420b-9ccd-f3aad6fc1406",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "name"
+        },
+        "text": "=Alert: {{ $('Switch').item.json.alert_name }}\nRoot Cause: {{ $('Switch').item.json.ai_root_cause }}\nAction: {{ $('Switch').item.json.ai_recommended_action }}\n\n🤖 AI Confidence:{{ $('Switch').item.json.ai_confidence }}% | ID: {{ $('Switch').item.json.incident_id }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        -144
+      ],
+      "id": "fcffa8b1-0ea4-483a-bfa5-9ab5c7cee55d",
+      "name": "Slack Message",
+      "webhookId": "66e1f762-7122-420b-9ccd-f3aad6fc1406",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "USLACKBOT",
+          "mode": "list",
+          "cachedResultName": "slackbot"
+        },
+        "text": "=={{ \n\"🚨 *CRITICAL INCIDENT — \" + $('Parse AI Response').first().json.service.toUpperCase() + \"*\\n\\n\" +\n\n\"*Incident ID:* \" + $('Parse AI Response').first().json.incident_id + \"\\n\" +\n\"*Service:* \" + $('Parse AI Response').first().json.service + \"\\n\" +\n\"*Environment:* \" + $('Parse AI Response').first().json.environment + \"\\n\" +\n\"*Host:* \" + $('Parse AI Response').first().json.host + \"\\n\" +\n\"*Time:* \" + $('Parse AI Response').first().json.timestamp + \"\\n\" +\n\"*AI Confidence:* \" + $('Parse AI Response').first().json.ai_confidence + \"%\\n\\n\" +\n\n\"*🔍 AI Root Cause Hypothesis:*\\n\" + $('Parse AI Response').first().json.ai_root_cause + \"\\n\\n\" +\n\n\"*💥 Estimated Impact:*\\n\" + $('Parse AI Response').first().json.ai_estimated_impact + \"\\n\\n\" +\n\n\"*✅ Recommended Action:*\\n\" + $('Parse AI Response').first().json.ai_recommended_action + \"\\n\\n\" +\n\n\"*🔗 Affected Services:* \" + $('Parse AI Response').first().json.ai_affected_services.join(', ') + \"\\n\\n\" +\n\n\"⚡ _Auto-triaged by AI | Jira ticket and runbook being prepared..._\"\n}}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        16
+      ],
+      "id": "47795683-536b-4ff7-a684-5723f803da84",
+      "name": "Slack Alert",
+      "webhookId": "7e01eec5-c6c7-4183-9bef-654ed12d7d13",
+      "credentials": {
+        "slackApi": {
+          "id": "d8m4Qm6C9v27XKtP",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1poJUBTiX_bMa6yoD-zziwManNUYrhuKC9XnqhlGt3I0",
+          "mode": "list",
+          "cachedResultName": "AI IT Incident Triage & Auto-Escalation System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1poJUBTiX_bMa6yoD-zziwManNUYrhuKC9XnqhlGt3I0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1poJUBTiX_bMa6yoD-zziwManNUYrhuKC9XnqhlGt3I0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "incident_id": "={{ $json.incident_id }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "service": "={{ $json.service }}",
+            "alert_name": "={{ $json.alert_name }}",
+            "ai_severity": "={{ $json.ai_severity }}",
+            "ai_confidence": "={{ $json.ai_confidence }}",
+            "ai_root_cause": "={{ $json.ai_root_cause }}",
+            "ai_recommended_action": "={{ $json.ai_recommended_action }}",
+            "environment": "={{ $json.environment }}",
+            "host": "={{ $json.host }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "incident_id",
+              "displayName": "incident_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "service",
+              "displayName": "service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alert_name",
+              "displayName": "alert_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_severity",
+              "displayName": "ai_severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_confidence",
+              "displayName": "ai_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_root_cause",
+              "displayName": "ai_root_cause",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_recommended_action",
+              "displayName": "ai_recommended_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "environment",
+              "displayName": "environment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "host",
+              "displayName": "host",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1248,
+        208
+      ],
+      "id": "9e41868c-8270-4028-a8fe-15cc63e338fe",
+      "name": "Log to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Alert Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Alert Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Slack Channel Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invite a user to a channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invite a user to a channel": {
+      "main": [
+        [
+          {
+            "node": "Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Channel Create": {
+      "main": [
+        [
+          {
+            "node": "Jira Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira Ticket": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Alert Message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "15500759-0899-4df8-9630-fe2fb984fa97",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "6vZjufKUUviWhnli",
+  "tags": []
+}

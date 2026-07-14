@@ -1,0 +1,839 @@
+{
+  "name": "Competitor Monitoring & Insights Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -400,
+        -80
+      ],
+      "id": "19a7ded7-dc77-4b96-90e7-e049f2271ba7",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen-2.5-coder-32b-instruct",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        320
+      ],
+      "id": "99d8c0bd-5f15-4695-be00-98fe1ed62215",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "IfKkKP8K0XM7arme",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro",
+          "mode": "list",
+          "cachedResultName": "Competitor Monitoring & Insights Bot",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit#gid=0"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A1:D"
+            }
+          },
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -176,
+        -80
+      ],
+      "id": "d92abb63-e69f-422a-a2d6-7f97b4a379ec",
+      "name": "Load Competitor List",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.row_number }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "805682be-bc73-450b-be02-d807326a3e65"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7f238968-bdd6-424b-8cd5-7317c0fd162e",
+                    "leftValue": "={{ $json.row_number }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        32,
+        -80
+      ],
+      "id": "2563249a-b9c9-4988-87ed-d22c117af75c",
+      "name": "Split Into Batches"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        304,
+        -96
+      ],
+      "id": "1138de2f-0bbe-41e5-9c90-c3f02360cec5",
+      "name": "Fetch Website Content",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract meaningful text from HTML\nconst html = $input.item.json.data || '';\nconst rss = $input.item.json.rss_data || '';\n\n// Clean HTML\nconst cleanText = html\n  .replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '')\n  .replace(/<style\\b[^<]*(?:(?!<\\/style>)<[^<]*)*<\\/style>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .substring(0, 15000);\n\n// Extract RSS headlines\nconst rssHeadlines = rss\n  .match(/<title>(.*?)<\\/title>/g)\n  ?.map(t => t.replace(/<\\/?title>/g, ''))\n  .slice(0, 10)\n  .join(' | ') || '';\n\n// ✅ Pure JS hash (n8n-safe)\nfunction hashString(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    hash = (hash << 5) - hash + str.charCodeAt(i);\n    hash |= 0; // Convert to 32-bit integer\n  }\n  return hash.toString();\n}\n\nconst contentHash = hashString(cleanText);\n\nreturn {\n  json: {\n    company_name: $input.item.json.company_name,\n    website_url: $input.item.json.website_url,\n    cleaned_text: cleanText,\n    rss_headlines: rssHeadlines,\n    current_hash: contentHash,\n    previous_hash: $input.item.json.last_checked_hash || '',\n    timestamp: new Date().toISOString()\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        -96
+      ],
+      "id": "79df19d2-e551-4684-b615-5318a47b331d",
+      "name": "Extract Text Content"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b8c44782-043a-43c4-931c-b80c05ce7774",
+              "leftValue": "={{ $json.current_hash }}",
+              "rightValue": "={{ $json.previous_hash }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "f9e9f77e-7ae4-4c8d-ac0c-d808a791780e",
+              "leftValue": "={{ $json.previous_hash }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        752,
+        -96
+      ],
+      "id": "0337d68b-857e-4a06-a571-742abcc09fd9",
+      "name": "Detect Changes"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "700c765e-8e13-45e7-a935-584db0f3da3a",
+              "name": "prompt_text",
+              "value": "Formatted analysis request",
+              "type": "string"
+            },
+            {
+              "id": "b8ba2721-1369-4d3b-a43a-1e3650ffb3cf",
+              "name": "company_context",
+              "value": "={{ $('Load Competitor List').first([0][2]).json }}",
+              "type": "string"
+            },
+            {
+              "id": "fd2279c2-19fc-4918-9b0e-60dc2aad704f",
+              "name": "content_snapshot",
+              "value": "={{ $json.cleaned_text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -304,
+        160
+      ],
+      "id": "d2525159-f593-481b-97ea-f4650a548a51",
+      "name": "Prepare AI Analysis Prompt"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze changes for: {{ $json.company_context.parseJson().company_name }}\n\nWebsite: {{ $json.company_context.parseJson().website_url }}\n\nContent snapshot:\n{{ $json.content_snapshot }}\n\nRSS Headlines (if any):\n{{ $json.company_context.parseJson().rss_feed_url }}\n\nProvide competitive intelligence in JSON format.",
+        "options": {
+          "systemMessage": "=You are a competitive intelligence analyst. Analyze website content changes and provide actionable business insights.\n\nYour task:\n1. Identify what specifically changed (new products, pricing, messaging, features, blog topics)\n2. Assess the strategic significance (low/medium/high)\n3. Explain potential business impact\n4. Recommend response actions\n\nOutput ONLY valid JSON with this exact structure:\n{\n  \"changes_detected\": [\"change 1\", \"change 2\", \"change 3\"],\n  \"significance_level\": \"low|medium|high\",\n  \"business_impact\": \"Brief explanation of what this means for our business\",\n  \"key_insights\": [\"insight 1\", \"insight 2\"],\n  \"recommended_actions\": [\"action 1\", \"action 2\"],\n  \"summary\": \"One-sentence summary of the change\"\n}\n\nBe concise. Focus on strategic implications, not technical details."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        160
+      ],
+      "id": "bb608aa7-e3fc-4e92-b790-27c93b51bf7d",
+      "name": "AI Analysis Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.item.json.output || '';\n\n// Extract JSON from potential markdown code blocks\nlet jsonText = aiResponse;\nconst jsonMatch = aiResponse.match(/```json\\s*([\\s\\S]*?)\\s*```/);\nif (jsonMatch) {\n  jsonText = jsonMatch[1];\n} else {\n  // Try to find JSON object directly\n  const directMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n  if (directMatch) {\n    jsonText = directMatch[0];\n  }\n}\n\ntry {\n  const insights = JSON.parse(jsonText);\n  \n  return {\n    json: {\n      company_name: $input.item.json.company_name,\n      website_url: $input.item.json.website_url,\n      timestamp: $input.item.json.timestamp,\n      current_hash: $input.item.json.current_hash,\n      changes_detected: insights.changes_detected || [],\n      significance_level: insights.significance_level || 'medium',\n      business_impact: insights.business_impact || '',\n      key_insights: insights.key_insights || [],\n      recommended_actions: insights.recommended_actions || [],\n      summary: insights.summary || 'Content changed on competitor website'\n    }\n  };\n} catch (error) {\n  // Fallback if JSON parsing fails\n  return {\n    json: {\n      company_name: $input.item.json.company_name,\n      website_url: $input.item.json.website_url,\n      timestamp: $input.item.json.timestamp,\n      current_hash: $input.item.json.current_hash,\n      changes_detected: ['Unable to parse AI response'],\n      significance_level: 'medium',\n      business_impact: 'Manual review needed',\n      key_insights: [],\n      recommended_actions: [],\n      summary: 'Content changed - AI analysis failed'\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        160
+      ],
+      "id": "15255a12-2452-4fd1-9789-73f87368c4cb",
+      "name": "Parse AI Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5b8b0468-7272-4b50-b9c2-956605077945",
+              "leftValue": "={{ $json.significance_level }}",
+              "rightValue": "medium",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "768d4c5d-4e66-4a61-9635-51d55ca3aa7c",
+              "leftValue": "={{ $json.significance_level }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        160
+      ],
+      "id": "a8d7eef5-a3de-4edf-8b07-ff5dc02078b6",
+      "name": "Filter Significant Changes"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro",
+          "mode": "list",
+          "cachedResultName": "Competitor Monitoring & Insights Bot",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 79908687,
+          "mode": "list",
+          "cachedResultName": "Insights_History",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit#gid=79908687"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "significance_level": "={{ $json.significance_level }}",
+            "summary": "={{ $json.summary }}",
+            "changes_detected": "={{ $json.changes_detected[0] }}, {{ $json.changes_detected[1] }} ,{{ $json.changes_detected[2] }} , {{ $json.changes_detected[3] }} , {{ $json.changes_detected[4] }} , {{ $json.changes_detected[5] }} , {{ $json.changes_detected[6] }}\n",
+            "business_impact": "={{ $json.business_impact }}",
+            "key_insights": "={{ $json.key_insights[0] }}\n{{ $json.key_insights[1] }}\n{{ $json.key_insights[2] }}\n{{ $json.key_insights[3] }}\n",
+            "recommended_actions": "={{ $json.recommended_actions[0] }}\n{{ $json.recommended_actions[1] }}\n{{ $json.recommended_actions[2] }}\n{{ $json.recommended_actions[3] }}\n{{ $json.recommended_actions[4] }}",
+            "timestamp": "={{ $('Schedule Trigger')}}",
+            "company_name": "={{ $('Load Competitor List').item.json.company_name }}",
+            "website_url": "={{ $('Load Competitor List').item.json.website_url }}",
+            "content_hash": "={{ $('Extract Text Content').item.json.current_hash}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "significance_level",
+              "displayName": "significance_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "changes_detected",
+              "displayName": "changes_detected",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_impact",
+              "displayName": "business_impact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key_insights",
+              "displayName": "key_insights",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommended_actions",
+              "displayName": "recommended_actions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content_hash",
+              "displayName": "content_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        144
+      ],
+      "id": "5559896e-e20c-4d9e-b61a-ad1f14b2770c",
+      "name": "Log to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "032b7d2f-f9ff-4451-86a0-0a7b470b2372",
+              "name": "=notification_message",
+              "value": "=🚨 COMPETITOR UPDATE DETECTED\n\nCompany: {{ $json.company_name }}\nSignificance: {{ $json.significance_level.toUpperCase() }}\nDate: {{ $json.timestamp.substring(0,10) }}\n\n📋 SUMMARY\n{{ $json.summary }}\n\n🔍 CHANGES DETECTED\n{{ $json.changes_detected }}\n\n💡 KEY INSIGHTS\n{{ $json.key_insights }}\n\n📊 BUSINESS IMPACT\n{{ $json.business_impact }}\n\n✅ RECOMMENDED ACTIONS\n{{ $json.recommended_actions }}\n\n🔗 View: {{ $json.website_url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        336
+      ],
+      "id": "98f35e67-a16c-4342-a1be-6b490e91a95f",
+      "name": "Format Notification Message"
+    },
+    {
+      "parameters": {
+        "sendTo": "storysnippents@gmail.com",
+        "subject": "🚨 COMPETITOR UPDATE DETECTED",
+        "message": "={{ $json.notification_message }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        544,
+        336
+      ],
+      "id": "0393d186-d991-43e1-ae4a-2c2b31e3f9cd",
+      "name": "Send Notification",
+      "webhookId": "e88d9c80-6581-4b9d-a63e-f2207f83f78a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7XNYGaBFEcVkLMju",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro",
+          "mode": "list",
+          "cachedResultName": "Competitor Monitoring & Insights Bot",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PRhpxkhLOO238TIX0kvQ_6TcNQdod5MWXqLNZkg23Ro/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_name": "={{ $('Log to Google Sheets').item.json.company_name }}",
+            "last_checked_hash": "={{ $('Log to Google Sheets').item.json.content_hash }}"
+          },
+          "matchingColumns": [
+            "company_name"
+          ],
+          "schema": [
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "website_url",
+              "displayName": "website_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "rss_feed_url",
+              "displayName": "rss_feed_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "last_checked_hash",
+              "displayName": "last_checked_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        336
+      ],
+      "id": "831e580a-8456-4a54-aa27-b6180485e8cb",
+      "name": "Update Competitor Hash",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "twmxeUbOfErGsbbM",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": true
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        976,
+        336
+      ],
+      "id": "d0284c54-6f46-4860-8fdf-732836ecedfc",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Competitor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Competitor List": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetch Website Content": {
+      "main": [
+        [
+          {
+            "node": "Extract Text Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text Content": {
+      "main": [
+        [
+          {
+            "node": "Detect Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Changes": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Analysis Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Analysis Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Filter Significant Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Significant Changes": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Competitor Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Format Notification Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Notification Message": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification": {
+      "main": [
+        [
+          {
+            "node": "Update Competitor Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Competitor Hash": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4e37cff6-62a4-4f27-adac-784a081c0869",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc74f12774e3871a4e36f0d67c6934d039e29c5abcb25a6144d9e7b521426c15"
+  },
+  "id": "8VoCSaLN3lqRDCX5",
+  "tags": []
+}
